@@ -37,7 +37,15 @@ sequenceDiagram
     end
 
     loop
+        rect rgba(200,200,200,0.3)
+            opt if JWT expired
+                Retry->>Icm: Authenticate with client credentials
+                Icm->>Retry: Return JWT tokens
+            end
+        end
+
         Retry->>Icm: Dequeue and attempt next memo submission<br>(request with username header & id JWT)
+
         alt Success
             rect rgba(0, 180, 0, 0.3)
                 Icm->>Retry: Return 2xx
@@ -46,7 +54,8 @@ sequenceDiagram
         else Error
             rect rgba(180, 0, 0, 0.3)
                 Icm->>Retry: Return 4xx / 5xx
-                Retry->>Email: Notify user by email: <br> submission successfully entered into ICM
+                Retry->>Email: Notify user by email: <br> submission failed & submission will be <br> sent to shared inbox for manual entry
+                Retry->>Email: Send submission to pre-configured shared inbox
             end
         end
     end
