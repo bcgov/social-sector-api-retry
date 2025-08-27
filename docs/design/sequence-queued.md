@@ -31,8 +31,13 @@ sequenceDiagram
     rect rgba(255, 180, 0, 0.3)
         Icm->>Retry: Return 503 SERVICE UNAVAILABLE
         Retry->>Retry: Store and queue submission
-        Retry->>Email: Notify user by email: <br> submission accepted and queued
-        Retry->>User: Return 202 ACCEPTED
+
+        alt Inbound API call
+            Retry->>User: Return 202 ACCEPTED
+        else Webhook notification
+            Retry->>Email: Notify user by email: <br> submission accepted and queued
+        end
+
         Retry->>Retry: Wait for ICM to restore services²
     end
 
