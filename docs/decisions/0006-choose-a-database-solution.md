@@ -37,7 +37,7 @@ Chosen option: "PostgreSQL", because it allows for the best balance of flexibili
 ### In-memory cache
 * Good, because it is easy to set up and flexible
 * Bad, because it does not offer persistent storage
-* Bad, because data expires after a certain amount of timne rather than being removed as needed.
+* Bad, because data expires after a certain amount of time rather than being removed as needed.
 
 ### MongoDB
 * Good, because it uses a JSON-like structure natively, similar to how requests would be sent
