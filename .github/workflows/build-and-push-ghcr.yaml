@@ -74,8 +74,8 @@ jobs:
           changes: |
             {
               "image.tag": "${{ github.ref_name }}",
-              "vpiAppBuildLabel.version": "${{ github.ref_name }}-${{ github.run_number }}",
-              "vpiAppEnv": "${{ vars.SOCIAL_RETRY_APP_ENV }}",
+              "socialRetryAppBuildLabel.version": "${{ github.ref_name }}-${{ github.run_number }}",
+              "socialRetryAppEnv": "${{ vars.SOCIAL_RETRY_APP_ENV }}",
               "aps.namespace": "${{ secrets.APS_NAMESPACE }}"
             }
           commitChange: false
