@@ -1,0 +1,4 @@
+apiVersion: v1
+name: social-retry
+description: A Helm chart for deploying social-retry
+version: 0.0.1

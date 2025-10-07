@@ -1,0 +1,6 @@
+env:
+  - name: NODE_ENV
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: NODE_ENV
