@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: social-retry-app
+  labels:
+    app.kubernetes.io/name: social-retry-app
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: social-retry-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: social-retry-app
+    spec:
+      containers:
+        - name: social-retry-app-container
+          image: "{{ .Values.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.service.containerPort }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          imagePullPolicy: Always
+          env: {{- toYaml .Values.env | nindent 12 }}
+            - name: SOCIAL_RETRY_APP_LABEL
+              value: {{ .Values.socialRetryAppBuildLabel.version }}
+            - name: SOCIAL_RETRY_APP_ENV
+              value: {{ .Values.socialRetryAppEnv }}
+      restartPolicy: Always

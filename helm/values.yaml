@@ -1,0 +1,27 @@
+replicaCount: 1
+ 
+image:
+  repository: ghcr.io/bcgov/social-retry
+  tag: '<set by CI/CD>'
+  pullPolicy: Always
+ 
+service:
+  type: ClusterIP
+  port: 443
+  containerPort: 3000
+ 
+resources: {}
+ 
+nodeSelector: {}
+ 
+tolerations: []
+ 
+affinity: {}
+
+socialRetryAppEnv: '<set by CI/CD>'
+
+aps:
+  namespace: '<set by CI/CD>'
+
+socialRetryAppBuildLabel:
+  version: '<set by CI/CD>'
