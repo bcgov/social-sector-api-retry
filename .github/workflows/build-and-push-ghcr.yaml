@@ -90,7 +90,7 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          helm upgrade -f helm/visitz-config-values.yaml -f helm/values.yaml \
+          helm upgrade -f helm/retry-config-values.yaml -f helm/values.yaml \
             --install ${{ env.HELM_RELEASE_NAME }} ./helm \
             --namespace ${{ secrets.OPENSHIFT_NAMESPACE }} \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
