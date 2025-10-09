@@ -88,6 +88,10 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_SERVICE_ACCOUNT_TOKEN }}
           insecure_skip_tls_verify: true
 
+      - name: Upgrade Helm dependencies
+        run: |
+          helm dependency update ./helm
+
       - name: Deploy with Helm
         run: |
           helm upgrade -f helm/retry-config-values.yaml -f helm/values.yaml \
