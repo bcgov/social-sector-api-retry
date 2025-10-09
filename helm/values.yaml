@@ -25,3 +25,21 @@ aps:
 
 socialRetryAppBuildLabel:
   version: '<set by CI/CD>'
+
+patroni:
+  resources:
+    limits:
+      cpu: 75m
+      memory: 300Mi
+    requests:
+      cpu: 20m
+      memory: 256Mi
+
+persistentVolume:
+  enabled: true
+  accessModes:
+    - ReadWriteOnce
+  annotations: {}
+  mountPath: "/home/postgres/pgdata"
+  size: 300MiB
+  storageClass: "netapp-block-standard"
