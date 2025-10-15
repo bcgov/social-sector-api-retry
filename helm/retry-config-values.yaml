@@ -16,22 +16,22 @@ env:
           key: DB_PORT
   - name: DB_NAME
     valueFrom:
-      configMapKeyRef:
+      secretKeyRef:
           name: postgresql
           key: database-name
   - name: DB_SCHEMA
     valueFrom:
-      configMapKeyRef:
+      secretKeyRef:
           name: postgresql
           key: database-schema
   - name: DB_USERNAME
     valueFrom:
-      configMapKeyRef:
+      secretKeyRef:
           name: postgresql
           key: database-user
   - name: DB_PASSWORD
     valueFrom:
-      configMapKeyRef:
+      secretKeyRef:
           name: postgresql
           key: database-password
   - name: DB_SYNCHRONIZE
