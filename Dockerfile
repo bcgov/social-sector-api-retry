@@ -20,7 +20,4 @@ RUN npm run build
 EXPOSE 3000
 
 # Command to run the application in production mode
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["node", "dist/main"]

@@ -39,3 +39,8 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: DB_SYNCHRONIZE
+  - name: DB_RUN_MIGRATIONS
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: DB_RUN_MIGRATIONS
