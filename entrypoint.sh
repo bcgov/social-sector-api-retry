@@ -1,3 +1,5 @@
+#!/bin/sh
+
 echo "Applying database migrations..."
 npm run migration:run
 
