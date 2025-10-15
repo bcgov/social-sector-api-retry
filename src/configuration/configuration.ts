@@ -10,5 +10,6 @@ export default () => ({
     database: process.env.DB_NAME,
     schema: process.env.DB_SCHEMA,
     synchronize: process.env.DB_SYNCHRONIZE === 'true',
+    runMigrations: process.env.DB_RUN_MIGRATIONS === 'true',
   },
 });
