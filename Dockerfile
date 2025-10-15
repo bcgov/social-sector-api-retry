@@ -13,11 +13,14 @@ RUN npm install
 # Copy the rest of the application files
 COPY . .
 
-# Build the application for production (includes NestJS and TypeORM)
-RUN npm run migration:run
+# Build the application for production
+RUN npm run build
 
 # Expose the port your app runs on
 EXPOSE 3000
 
 # Command to run the application in production mode
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["node", "dist/main"]
