@@ -44,3 +44,8 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: DB_RUN_MIGRATIONS
+  - name: DB_LOGGING
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: DB_LOGGING
