@@ -8,6 +8,9 @@ import {
 } from 'pino-std-serializers';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Request } from './db/entities/request.entity';
+import { ControllersModule } from './controllers/controllers.module';
 
 @Module({
   imports: [
@@ -93,6 +96,22 @@ import { AppService } from './app.service';
         },
       }),
     }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('db.host'),
+        port: configService.get('db.port'),
+        username: configService.get('db.username'),
+        password: configService.get('db.password'),
+        database: configService.get('db.database'),
+        schema: configService.get('db.schema'),
+        entities: [Request],
+        synchronize: configService.get('db.synchronize'),
+      }),
+    }),
+    ControllersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
