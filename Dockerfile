@@ -13,8 +13,8 @@ RUN npm install
 # Copy the rest of the application files
 COPY . .
 
-# Build the application for production
-RUN npm run build
+# Build the application for production (includes NestJS and TypeORM)
+RUN npm run migration:run
 
 # Expose the port your app runs on
 EXPOSE 3000

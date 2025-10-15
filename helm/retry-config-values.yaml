@@ -4,3 +4,38 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: NODE_ENV
+  - name: DB_HOST
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: DB_HOST
+  - name: DB_PORT
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: DB_PORT
+  - name: DB_NAME
+    valueFrom:
+      configMapKeyRef:
+          name: postgresql
+          key: database-name
+  - name: DB_SCHEMA
+    valueFrom:
+      configMapKeyRef:
+          name: postgresql
+          key: database-schema
+  - name: DB_USERNAME
+    valueFrom:
+      configMapKeyRef:
+          name: postgresql
+          key: database-user
+  - name: DB_PASSWORD
+    valueFrom:
+      configMapKeyRef:
+          name: postgresql
+          key: database-password
+  - name: DB_SYNCHRONIZE
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: DB_SYNCHRONIZE
