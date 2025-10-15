@@ -111,7 +111,7 @@ import { ControllersModule } from './controllers/controllers.module';
         synchronize: configService.get('db.synchronize'),
         migrationsRun: configService.get('db.runMigrations'),
         migrations: ['dist/db/migrations/**/*{.js,.ts}'],
-        logging: true,
+        logging: configService.get('db.logging'),
       }),
     }),
     ControllersModule,
