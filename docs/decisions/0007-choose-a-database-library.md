@@ -37,7 +37,7 @@ Chosen option: "TypeORM", because it blends best with our current TypeScript and
 
 ### pg
 
-https://node-postgres.com/| [GitHub](https://github.com/brianc/node-postgres)
+https://node-postgres.com/ | [GitHub](https://github.com/brianc/node-postgres)
 
 > Non-blocking PostgreSQL client for Node.js. Pure JavaScript and optional native libpq bindings.
 
