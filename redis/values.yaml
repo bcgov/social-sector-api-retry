@@ -1,0 +1,11 @@
+deployment:
+  name: redis-social-retry
+
+pvc:
+  name: redis-social-retry-pvc
+
+image:
+  tag: docker.io/redis:6.2.21-alpine
+
+secret:
+  name: redis-retry-app-secret

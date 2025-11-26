@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.deployment.name }}"
+spec:
+  replicas: 1
+  selector:
+    app: "{{ .Values.deployment.name }}"
+    deployment: "{{ .Values.deployment.name }}"
+    role: redis
+  strategy:
+    resources: {}
+    type: Rolling
+  template:
+    metadata:
+      labels:
+        app: "{{ .Values.deployment.name }}"
+        app.kubernetes.io/component: redis
+        app.kubernetes.io/instance: "{{ .Values.deployment.name }}"
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/managed-by: template
+        app.kubernetes.io/part-of: "{{ .Values.deployment.name }}"
+        app.kubernetes.io/version: "6"
+        deploymentconfig: "{{ .Values.deployment.name }}"
+        role: redis
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          command:
+            - redis-server
+            - /conf/redis.conf
+          env:
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: "{{ .Values.secret.name }}"
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - redis-cli -h $HOSTNAME shutdown nosave
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test "$(redis-cli -h $HOSTNAME ping)" == "PONG"
+            initialDelaySeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
+          ports:
+            - containerPort: 6379
+              name: redis
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test "$(redis-cli -h $HOSTNAME ping)" == "PONG"
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            failureThreshold: 3
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: conf
+              mountPath: /conf
+              readOnly: false
+            - name: data
+              mountPath: /data
+              readOnly: false
+      volumes:
+        - name: conf
+          secret:
+            secretName: "{{ .Values.secret.name }}"
+        - name: data
+          persistentVolumeClaim:
+            claimName: "{{ .Values.pvc.name }}"
