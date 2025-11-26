@@ -10,7 +10,7 @@ spec:
     role: redis
   strategy:
     resources: {}
-    type: Rolling
+    type: RollingUpdate
   template:
     metadata:
       labels:

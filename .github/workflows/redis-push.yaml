@@ -5,18 +5,23 @@ permissions:
   packages: write
 
 on:
-  push:
-    branches:
-      - main
-      - test
-      - dev
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - dev
+          - test
+          - main
 
 env:
   HELM_RELEASE_NAME: redis-retry-deployment
 
 jobs:     
   deploy:
-      environment: ${{ github.ref_name }}
+      environment: ${{ github.event.inputs.environment }}
       runs-on: ubuntu-22.04
 
       steps:
