@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "{{ .Values.deployment.name }}"
+  name: {{ .Values.deployment.name }}
 spec:
   replicas: 1
   selector:
-    app: "{{ .Values.deployment.name }}"
-    deployment: "{{ .Values.deployment.name }}"
+    app: {{ .Values.deployment.name }}
+    deployment: {{ .Values.deployment.name }}
     role: redis
   strategy:
     resources: {}
@@ -14,19 +14,16 @@ spec:
   template:
     metadata:
       labels:
-        app: "{{ .Values.deployment.name }}"
+        app: {{ .Values.deployment.name }}
         app.kubernetes.io/component: redis
-        app.kubernetes.io/instance: "{{ .Values.deployment.name }}"
+        app.kubernetes.io/instance: {{ .Values.deployment.name }}
         app.kubernetes.io/name: redis
-        app.kubernetes.io/managed-by: template
-        app.kubernetes.io/part-of: "{{ .Values.deployment.name }}"
         app.kubernetes.io/version: "8"
-        deploymentconfig: "{{ .Values.deployment.name }}"
         role: redis
     spec:
       containers:
         - name: redis
-          image: "{{ .Values.image.tag }}"
+          image: {{ .Values.image.tag }}
           imagePullPolicy: IfNotPresent
           command:
             - redis-server
@@ -36,7 +33,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: "{{ .Values.secret.name }}"
+                  name: {{ .Values.secret.name }}
           lifecycle:
             preStop:
               exec:
@@ -76,7 +73,7 @@ spec:
       volumes:
         - name: conf
           secret:
-            secretName: "{{ .Values.secret.name }}"
+            secretName: {{ .Values.secret.name }}
         - name: data
           persistentVolumeClaim:
-            claimName: "{{ .Values.pvc.name }}"
+            claimName: {{ .Values.pvc.name }}
