@@ -1,0 +1,19 @@
+deployment:
+  name: redis-social-retry
+
+pvc:
+  name: redis-social-retry-pvc
+
+image:
+  tag: docker.io/redis:8.2-alpine
+
+secret:
+  name: redis-retry-app-secret
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 256Mi

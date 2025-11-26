@@ -1,0 +1,4 @@
+apiVersion: v2
+name: redis-social-retry
+description: A Helm chart for Redis for the social retry app.
+version: 1.0.0
