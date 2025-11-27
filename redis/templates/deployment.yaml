@@ -12,12 +12,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ .Values.deployment.name }}
-        app.kubernetes.io/component: redis
-        app.kubernetes.io/instance: {{ .Values.deployment.name }}
-        app.kubernetes.io/name: redis
-        app.kubernetes.io/version: "8"
-        role: redis
+        app.kubernetes.io/name: {{ .Values.deployment.name }}
     spec:
       containers:
         - name: redis
