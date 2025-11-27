@@ -5,11 +5,9 @@ metadata:
 spec:
   replicas: 1
   selector:
-    app: {{ .Values.deployment.name }}
-    deployment: {{ .Values.deployment.name }}
-    role: redis
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.deployment.name }}
   strategy:
-    resources: {}
     type: RollingUpdate
   template:
     metadata:

@@ -1,6 +1,9 @@
 deployment:
   name: redis-social-retry
 
+service:
+  name: redis-social-retry-service
+
 pvc:
   name: redis-social-retry-pvc
 
