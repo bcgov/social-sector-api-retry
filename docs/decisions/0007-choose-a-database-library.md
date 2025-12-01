@@ -1,7 +1,7 @@
 [//]: # (bc-madr v0.1)
 <!-- modified MADR 4.0.0 -->
 
-# Chhose a database library
+# Choose a database library
 
 * status: proposed
 * date: 2025-10-29
