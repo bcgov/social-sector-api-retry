@@ -9,7 +9,7 @@
 
 ## Context and Problem Statement
 
-Rather than implement an entirely new queueing sydtem, we want a NodeJS library to handle the intricacies of queuing and job scheduling. Ideally, this library will be cohesive with our current setup including TypeScript and NestJS.
+Rather than implement an entirely new queueing system, we want a NodeJS library to handle the intricacies of queuing and job scheduling. Ideally, this library will be cohesive with our current setup including TypeScript and NestJS.
 
 ## Decision Drivers
 
