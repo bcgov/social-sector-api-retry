@@ -8,6 +8,9 @@ export class Request {
   @Column({ type: 'text', nullable: true })
   email: string;
 
+  @Column({ type: 'text', nullable: true })
+  idir: string;
+
   @Column({ type: 'text', nullable: true, name: 'first_name' })
   firstName: string;
 

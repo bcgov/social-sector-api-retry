@@ -11,6 +11,10 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Request } from './db/entities/request.entity';
 import { ControllersModule } from './controllers/controllers.module';
+import { BullModule } from '@nestjs/bullmq';
+import { HelpersModule } from './helpers/helpers.module';
+import { ExternalApiModule } from './external-api/external-api.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -96,6 +100,7 @@ import { ControllersModule } from './controllers/controllers.module';
         },
       }),
     }),
+    CacheModule.register({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -114,7 +119,20 @@ import { ControllersModule } from './controllers/controllers.module';
         logging: configService.get('db.logging'),
       }),
     }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get('redis.host'),
+          port: configService.get('redis.port'),
+          password: configService.get('redis.password'),
+        },
+      }),
+    }),
     ControllersModule,
+    HelpersModule,
+    ExternalApiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
