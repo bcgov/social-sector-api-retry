@@ -8,8 +8,7 @@ import { OutboundQueueService } from '../../helpers/outbound-queue/outbound-queu
 import { ConfigService } from '@nestjs/config';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Request]), OutboundQueueModule],
-  exports: [TypeOrmModule],
+  imports: [OutboundQueueModule, TypeOrmModule.forFeature([Request])],
   providers: [RequestDBService, OutboundQueueService, ConfigService],
   controllers: [TestController],
 })

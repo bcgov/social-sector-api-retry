@@ -32,8 +32,12 @@ export class RequestPreparerService {
     }
     let data = undefined;
     if (req.body) {
-      if (req.contentType === 'application/json') {
-        data = JSON.parse(req.body);
+      if (
+        req.headers['Content-Type'] === 'application/json' ||
+        req.headers['Content-Type'] === 'application/x-www-form-urlencoded' ||
+        req.headers['Content-Type'] === 'multipart/form-data'
+      ) {
+        data = JSON.parse(req.body); // this is so axios can serialize the data correctly for upstream
       } else {
         data = req.body;
       }

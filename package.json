@@ -17,6 +17,7 @@
     "migration:run": "npx typeorm migration:run -d dist/db/data-source.js",
     "migration:down": "npm run typeorm -- migration:revert",
     "test": "jest",
+    "test:gh": "NODE_OPTIONS=--experimental-vm-modules jest --ci --reporters=default --reporters=jest-junit",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
@@ -50,9 +51,13 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
+    "@jest-mock/express": "^3.0.0",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@suites/di.nestjs": "^3.0.1",
+    "@suites/doubles.jest": "^3.0.1",
+    "@suites/unit": "^3.0.1",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.7",
@@ -85,9 +90,24 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!**/*.module.(t|j)s",
+      "!**/main.ts",
+      "!**/*.entity.(t|j)s",
+      "!**/configuration.(t|j)s",
+      "!**/db/migrations/*.(t|j)s",
+      "!**/db/data-source.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "jest-junit": {
+    "outputDirectory": "reports",
+    "outputName": "jest-junit.xml",
+    "ancestorSeparator": " › ",
+    "uniqueOutputName": "false",
+    "suiteNameTemplate": "{title}",
+    "classNameTemplate": "{title}",
+    "titleTemplate": "{title}"
   }
 }
