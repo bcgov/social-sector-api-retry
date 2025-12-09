@@ -22,8 +22,8 @@ To allow workers to submit forms while ICM is unavailable, we will use a [NestJS
 
 To make sure this stop-gap solution is reliable, the server app needs to maintain its own [storage (0006)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0006-choose-a-database-solution.md) and [inbound/outbound queues (0008)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0008-choose-a-queuing-library.md).
 
-Note that the chosen queueing library uses Redis, which can persist to disk. We chose to [also keep a database (0009)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0009-use-both-a-database-and-cache-solution.md) for two reasons:
+Note that the chosen queueing library uses Redis 8.+ (on the AGPLv3 licence) which can persist to disk. We chose to [also keep a database (0009)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0009-use-both-a-database-and-cache-solution.md) for two reasons:
 
-1. To enforce separation of concerns
+1. Redis is designed for kilobyte-sized payloads and we expect the submissions we receive could be up to 5MB.
 
-2. Redis is not designed for larger files, like attachments
+1. Redis is designed for reconstructible data—the submissions we receive cannot be regenerated. A proper source-of-truth copy should be maintained until processing is successful.
