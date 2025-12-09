@@ -33,7 +33,7 @@ export class OutboundQueueService implements OnApplicationBootstrap {
   async addSiebelRequest(id: string, req: Partial<Request>) {
     await this.outboundQueue.add('siebel', req, {
       attempts: Number.MAX_SAFE_INTEGER,
-      backoff: { type: 'fixed', delay: 30000 },
+      backoff: { type: 'fixed', delay: this.backoffDelay },
       // this is so the lock on the blocking job can expire if there is an unexpected shutdown
       jobId: id,
       removeOnComplete: true,
