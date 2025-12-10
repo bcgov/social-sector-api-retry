@@ -53,7 +53,7 @@ https://redis.io/ | [GitHub](https://github.com/redis/redis)
 
 ### Redis Cluster
 
-https://redis.io/docs/latest/operate/oss_and_stack/management/scaling/| [GitHub](https://github.com/redis/redis)
+https://redis.io/docs/latest/operate/oss_and_stack/management/scaling/ | [GitHub](https://github.com/redis/redis)
 
 > Redis Cluster provides a way to run a Redis installation where data is automatically sharded across multiple Redis nodes.
 
