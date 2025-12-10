@@ -18,11 +18,11 @@ To resolve this, an ICM Submission Queue can hold onto any number of submissions
 
 ## ADR overview
 
-To allow workers to submit forms while ICM is unavailable, we will use a [NestJS server app (0003)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0003-choose-an-api-framework.md) hosted in [BC Gov's private cloud (0004)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0004-select-a-hosting-platform.md).
+To allow workers to submit forms while ICM is unavailable, we will use a [NestJS server app (0003)](decisions/0003-choose-an-api-framework.md) hosted in [BC Gov's private cloud (0004)](decisions/0004-select-a-hosting-platform.md).
 
-To make sure this stop-gap solution is reliable, the server app needs to maintain its own [storage (0006)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0006-choose-a-database-solution.md) and [inbound/outbound queues (0008)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0008-choose-a-queuing-library.md).
+To make sure this stop-gap solution is reliable, the server app needs to maintain its own [storage (0008)](decisions/0008-choose-a-database-solution.md) and [inbound/outbound queues (0006)](decisions/0006-choose-a-queuing-library.md).
 
-Note that the chosen queueing library uses Redis 8.+ (on the AGPLv3 licence) which can persist to disk. We chose to [also keep a database (0009)](https://github.com/bcgov/social-sector-api-retry/blob/dev/docs/decisions/0009-use-both-a-database-and-cache-solution.md) for two reasons:
+Note that the chosen queueing library uses Redis 8.+ (on the AGPLv3 licence) which can persist to disk. We chose to [also keep a database (0010)](decisions/0010-use-both-a-database-and-cache-solution.md) for two reasons:
 
 1. Redis is designed for kilobyte-sized payloads and we expect the submissions we receive could be up to 5MB.
 
