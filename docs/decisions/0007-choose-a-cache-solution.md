@@ -67,7 +67,7 @@ https://redis.io/docs/latest/operate/oss_and_stack/management/scaling/ | [GitHub
 
 ### Dragonfly
 
-https://www.dragonflydb.io/| [GitHub](https://github.com/dragonflydb/dragonfly)
+https://www.dragonflydb.io/ | [GitHub](https://github.com/dragonflydb/dragonfly)
 
 > Dragonfly is a lightning fast, in-memory data store built for heavy workloads running on modern cloud hardware. Dragonfly is 100% API compatible with Redis, Valkey, and Memcached, allowing for quick and seamless migrations that result in up to 25X better performance on half the infrastructure.
 
@@ -83,7 +83,7 @@ As such, this can potentially sacrifice accuracy. In an edge case, 2 workers cou
 
 ### KeyDB
 
-https://docs.keydb.dev/| [GitHub](https://github.com/Snapchat/KeyDB)
+https://docs.keydb.dev/ | [GitHub](https://github.com/Snapchat/KeyDB)
 
 > KeyDB is a fully open source database, backed by Snap, and a faster drop in alternative to Redis
 
