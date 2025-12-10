@@ -31,6 +31,7 @@ Chosen option: "PostgreSQL", because it allows for the best balance of flexibili
 ### Consequences
 
 * Will require a DB setup in OpenShift, and possibly a database backup service
+* Additionally, we are choosing not to use a HA option at this time. Since this is a backup system by design, the extra complexity of setting up a HA system is not worth it for the minimal benefit it would provide. We could transition to a solution such as CrunchyDB at a later time if necessary while keeping the PostgreSQL core.
 
 ## Pros and Cons of the Options
 
@@ -51,7 +52,7 @@ Chosen option: "PostgreSQL", because it allows for the best balance of flexibili
 * Good, because it supports JSON as a datatype, and it can be queried / indexed
 * Good, because it is simple to set up and maintain
 * Good, because it uses SQL, which is widely known among developers
-* Good, because it has high avalibilty options if needed (Crunchy, Patroni...)
+* Good, because it has high avalibilty options if needed (CrunchyDB, etc.)
 * Good, because it has persistent storage
 * Good, because it is free and open-source
 * Bad, because it requires a structured schema for tables, making it slightly more complicated to generalize
