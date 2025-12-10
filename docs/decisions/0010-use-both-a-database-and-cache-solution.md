@@ -4,7 +4,7 @@
 # Use both a database and cache solution
 
 * status: proposed
-* date: 2025-11-27
+* date: 2025-12-10
 * decision-makers: Hannah MacDonald
 
 ## Context and Problem Statement
@@ -37,10 +37,11 @@ Chosen option: "Use both Redis and PostgreSQL", because it allows us to store la
 * Good, because it is less complex and less external systems to deal with
 * Bad, because Redis is not designed to store large individual records, and we may have large (~5mb) incoming requests
 * Bad, because it allows for less separation of concerns: Redis tracks both incoming data and job status simultaneously.
+* Bad, because Redis is a cache, inherently designed for reconstructible data. The submissions we receive cannot be regenerated. A proper source-of-truth copy should be maintained until processing is successful.
 
 ### Use both Redis and PostgreSQL
 
-* Good, because it plays to the strengths of both Redis and PostgreSQL: Redis is used for caching job data, while PostgreSQL can store larger files to use as needed.
+* Good, because it plays to the strengths of both Redis and PostgreSQL: Redis is used for caching job data, while PostgreSQL can store larger files to use as needed, with more consistency guarantees.
 * Good, because it allows for more separtion of concerns.
 * Bad, because it adds more system complexity.
 
