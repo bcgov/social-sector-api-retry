@@ -4,7 +4,7 @@
 # Chhose a database solution
 
 * status: proposed
-* date: 2025-09-16
+* date: 2025-12-10
 * decision-makers: Todd Scharien, Hannah MacDonald
 
 ## Context and Problem Statement
