@@ -4,7 +4,7 @@
 # Use both a database and cache solution
 
 * status: proposed
-* date: 2025-11-27
+* date: 2025-12-10
 * decision-makers: Hannah MacDonald
 
 ## Context and Problem Statement
