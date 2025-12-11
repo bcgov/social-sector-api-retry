@@ -127,6 +127,7 @@ import { CacheModule } from '@nestjs/cache-manager';
           host: configService.get('redis.host'),
           port: configService.get('redis.port'),
           password: configService.get('redis.password'),
+          username: configService.get('redis.user'),
         },
       }),
     }),
