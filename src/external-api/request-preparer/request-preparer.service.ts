@@ -31,6 +31,11 @@ export class RequestPreparerService {
       };
     }
     let data = undefined;
+    /*
+	 Note: Axios automatically converts data of the following content types from JSON
+	 to what's needed upstream (ex: an encoded url). We're taking the plaintext data from the DB
+	 and converting it into the correct format for axios here.
+	 */
     if (req.body) {
       if (
         req.headers['Content-Type'] === 'application/json' ||
