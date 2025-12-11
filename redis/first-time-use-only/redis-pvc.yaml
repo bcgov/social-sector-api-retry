@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: redis-retry-app-pvc
+  name: redis-social-retry-pvc
 spec:
   accessModes:
     - ReadWriteOnce
