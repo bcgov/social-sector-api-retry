@@ -59,6 +59,11 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: REDIS_PORT
+  - name: REDIS_USER
+    valueFrom:
+      secretKeyRef:
+          name: redis
+          key: database-username
   - name: REDIS_PASSWORD
     valueFrom:
       secretKeyRef:
