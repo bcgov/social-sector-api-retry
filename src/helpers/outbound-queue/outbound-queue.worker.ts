@@ -86,7 +86,7 @@ export class OutboundQueueWorker extends WorkerHost {
           throw error; // moves to failed state for retry
         } else if (error.status === 503) {
           this.logger.error(
-            `Upstream request fstatus 503, failed with message: ${error.message}`,
+            `Upstream request status 503, failed with message: ${error.message}`,
           );
           //service unavailable
           throw error; // moves to failed state for retry
