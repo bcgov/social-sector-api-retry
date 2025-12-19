@@ -111,6 +111,9 @@ import { CacheModule } from '@nestjs/cache-manager';
         username: configService.get('db.username'),
         password: configService.get('db.password'),
         database: configService.get('db.database'),
+        ssl: configService.get<boolean>('db.useSSL')
+          ? configService.get<object>('db.ssl')
+          : false,
         schema: configService.get('db.schema'),
         entities: [Request],
         synchronize: configService.get('db.synchronize'),
