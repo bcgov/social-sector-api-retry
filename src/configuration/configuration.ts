@@ -12,6 +12,12 @@ export default () => ({
     synchronize: process.env.DB_SYNCHRONIZE === 'true',
     runMigrations: process.env.DB_RUN_MIGRATIONS === 'true',
     logging: process.env.DB_LOGGING === 'true',
+    useSSL: process.env.DB_SSL === 'true',
+    ssl: {
+      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTH === 'true',
+      ca: process.env.DB_CA_CERT,
+      cert: process.env.DB_CLIENT_CERT,
+    },
   },
   redis: {
     host: process.env.REDIS_HOST,
