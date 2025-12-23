@@ -114,3 +114,8 @@ env:
       secretKeyRef:
           name: mutual-authentication-mtls
           key: QUEUE_DB_CLIENT_CERT
+  - name: DB_CLIENT_KEY
+    valueFrom:
+      secretKeyRef:
+          name: mutual-authentication-mtls
+          key: QUEUE_DB_CLIENT_KEY

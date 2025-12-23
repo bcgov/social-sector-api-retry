@@ -17,6 +17,7 @@ export default () => ({
       rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTH === 'true',
       ca: process.env.DB_CA_CERT,
       cert: process.env.DB_CLIENT_CERT,
+      key: process.env.DB_CLIENT_KEY,
     },
   },
   redis: {
