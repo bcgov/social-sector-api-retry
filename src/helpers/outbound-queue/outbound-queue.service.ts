@@ -3,6 +3,7 @@ import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { Request } from '../../db/entities/request.entity';
 import { ConfigService } from '@nestjs/config';
+import { UpstreamType } from '../../common/constants/enumerations';
 
 @Injectable()
 export class OutboundQueueService implements OnApplicationBootstrap {
@@ -22,7 +23,7 @@ export class OutboundQueueService implements OnApplicationBootstrap {
 
   async addRequestToTypeQueue(req: Partial<Request>) {
     switch (req.upstreamType) {
-      case 'siebel':
+      case UpstreamType.Siebel:
         await this.addSiebelRequest(req.id, req);
         return;
       default:
@@ -31,7 +32,7 @@ export class OutboundQueueService implements OnApplicationBootstrap {
   }
 
   async addSiebelRequest(id: string, req: Partial<Request>) {
-    await this.outboundQueue.add('siebel', req, {
+    await this.outboundQueue.add(UpstreamType.Siebel, req, {
       attempts: Number.MAX_SAFE_INTEGER,
       backoff: { type: 'fixed', delay: this.backoffDelay },
       // this is so the lock on the blocking job can expire if there is an unexpected shutdown

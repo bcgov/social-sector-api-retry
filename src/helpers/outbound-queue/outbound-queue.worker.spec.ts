@@ -13,6 +13,9 @@ import { UtilitiesService } from '../utilities/utilities.service';
 import { Job } from 'bullmq';
 import { mock } from '@suites/doubles.jest';
 import { AxiosError, AxiosRequestHeaders } from 'axios';
+import { JwtModule } from '@nestjs/jwt';
+import { DataSource } from 'typeorm';
+import { OutboundQueueService } from './outbound-queue.service';
 
 describe('OutboundQueueWorker', () => {
   let outboundQueueWorker: OutboundQueueWorker;
@@ -32,6 +35,7 @@ describe('OutboundQueueWorker', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OutboundQueueWorker,
+        OutboundQueueService,
         UtilitiesService,
         RequestPreparerService,
         {
@@ -65,7 +69,9 @@ describe('OutboundQueueWorker', () => {
         },
         RequestDBService,
         { provide: getRepositoryToken(Request), useValue: {} },
+        { provide: DataSource, useValue: {} },
       ],
+      imports: [JwtModule.register({ global: true })],
     }).compile();
 
     outboundQueueWorker = module.get<OutboundQueueWorker>(OutboundQueueWorker);

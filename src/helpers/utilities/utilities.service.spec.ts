@@ -1,12 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UtilitiesService } from './utilities.service';
+import configuration from '../../configuration/configuration';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 
 describe('UtilitiesService', () => {
   let service: UtilitiesService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UtilitiesService],
+      providers: [UtilitiesService, ConfigService],
+      imports: [
+        ConfigModule.forRoot({ load: [configuration] }),
+        JwtModule.register({ global: true }),
+      ],
     }).compile();
 
     service = module.get<UtilitiesService>(UtilitiesService);

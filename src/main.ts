@@ -4,6 +4,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { Logger } from 'nestjs-pino';
 import { Logger as NestJSLogger } from '@nestjs/common';
+import { json } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -21,6 +22,8 @@ async function bootstrap() {
   SwaggerModule.setup(`api-spec`, app, documentFactory, {
     jsonDocumentUrl: `api-spec/json`,
   });
+  const bodyLimit = process.env.BODY_SIZE_LIMIT ?? '7mb';
+  app.use(json({ limit: bodyLimit }));
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);

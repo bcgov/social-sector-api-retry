@@ -38,4 +38,7 @@ export default () => ({
         Number.parseInt(process.env.SIEBEL_BACKOFF_DELAY_MS) ?? 30000,
     },
   },
+  authorizedUrls: {
+    siebel: process.env.SIEBEL_UPSTREAM_URL,
+  },
 });

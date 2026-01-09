@@ -11,6 +11,7 @@ import { RequestDBService } from '../../db/request.service';
 import { AxiosError } from 'axios';
 import { UtilitiesService } from '../utilities/utilities.service';
 import { ConfigService } from '@nestjs/config';
+import { UpstreamType } from '../../common/constants/enumerations';
 
 /*
 	Notes about queue priority and blocking:
@@ -56,7 +57,7 @@ export class OutboundQueueWorker extends WorkerHost {
   private readonly logger = new Logger(OutboundQueueWorker.name);
   async process(job: Job<any, any, string>): Promise<any> {
     switch (job.name) {
-      case 'siebel':
+      case UpstreamType.Siebel:
         await this.processSiebel(job);
         return;
       case 'siebelBlockDelay':
