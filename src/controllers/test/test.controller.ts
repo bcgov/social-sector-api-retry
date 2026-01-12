@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { RequestDBService } from '../../db/request.service';
 import { InsertResult } from 'typeorm';
-import { CreateRequestDto } from '../../dto/create-request.dto';
+import { ExpandedCreateRequestDto } from '../../dto/create-request.dto';
 import { OutboundQueueService } from '../../helpers/outbound-queue/outbound-queue.service';
 
 @Controller('test')
@@ -13,7 +13,7 @@ export class TestController {
 
   @Post()
   async createRequest(
-    @Body() createRequestDto: CreateRequestDto,
+    @Body() createRequestDto: ExpandedCreateRequestDto,
   ): Promise<InsertResult> {
     return await this.requestDBService.createOne(createRequestDto);
   }
