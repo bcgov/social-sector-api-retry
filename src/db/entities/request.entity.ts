@@ -39,31 +39,31 @@ export class Request {
   body: string;
 
   @Column({ type: 'jsonb', nullable: true, name: 'webhook_headers' })
-  webhookHeaders: object;
+  webhookHeaders?: object;
 
   @Column({ type: 'jsonb', nullable: true, name: 'webhook_params' })
-  webhookParams: object;
+  webhookParams?: object;
 
   @Column({ type: 'text', nullable: true, name: 'webhook_content_type' })
-  webhookContentType: string;
+  webhookContentType?: string;
 
   @Column({ type: 'text', nullable: true, name: 'webhook_body' })
-  webhookBody: string;
+  webhookBody?: string;
 
   @Column({ type: 'text', nullable: true, name: 'overall_status' })
-  overallStatus: string; // enum?
+  overallStatus?: string; // enum?
 
   @Column({
     type: 'integer',
     nullable: true,
     name: 'latest_upstream_error_code',
   })
-  latestUpstreamErrorCode: number;
+  latestUpstreamErrorCode?: number;
 
   @Column({
     type: 'text',
     nullable: true,
     name: 'latest_upstream_error_message',
   })
-  latestUpstreamErrorMessage: string;
+  latestUpstreamErrorMessage?: string;
 }

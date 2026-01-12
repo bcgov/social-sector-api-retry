@@ -100,7 +100,8 @@
       "!**/*.entity.(t|j)s",
       "!**/configuration.(t|j)s",
       "!**/db/migrations/*.(t|j)s",
-      "!**/db/data-source.(t|j)s"
+      "!**/db/*.(t|j)s", 
+	  "!**/controllers/test/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

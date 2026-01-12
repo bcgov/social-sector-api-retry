@@ -114,3 +114,8 @@ env:
       secretKeyRef:
           name: mutual-authentication-mtls
           key: QUEUE_DB_CLIENT_CERT
+  - name: SIEBEL_UPSTREAM_URL
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: SIEBEL_UPSTREAM_URL

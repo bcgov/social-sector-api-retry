@@ -22,7 +22,7 @@ export class EnqueueService {
   ) {}
 
   async postEnqueueEvent(createRequestDto: CreateRequestDto, req: Request) {
-    // Evaluate request type, reject with 422 if applicable
+    // Evaluate request type, reject if applicable
     let upstreamType;
     try {
       upstreamType = this.utilitiesService.isValidOutboundUrl(
@@ -58,7 +58,8 @@ export class EnqueueService {
           : undefined,
         body: createRequestDto.body,
       };
-    } catch {
+    } catch (error) {
+      this.logger.error(error);
       throw new BadRequestException([invalidJWTError]);
     }
 
