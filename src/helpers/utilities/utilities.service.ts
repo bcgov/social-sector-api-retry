@@ -89,7 +89,7 @@ export function validateStringMatchingMimeType(type: string, body: string) {
     }
   } else if (type === 'application/x-www-form-urlencoded') {
     try {
-      JSON.parse(decodeURIComponent(body));
+      decodeURIComponent(body);
     } catch {
       throw new BadRequestException([invalidURLEncodedError]);
     }

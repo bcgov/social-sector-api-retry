@@ -49,7 +49,6 @@ export class RequestDBService {
       const result = await this.requestsRepository.findOneBy({
         id: insertResult.identifiers[0].id,
       });
-      console.log(result);
       await this.outboundQueueService.addRequestToTypeQueue(result);
       await queryRunner.commitTransaction();
       return result;

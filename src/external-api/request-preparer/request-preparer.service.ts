@@ -45,7 +45,7 @@ export class RequestPreparerService {
       } else if (
         req.headers['Content-Type'] === 'application/x-www-form-urlencoded'
       ) {
-        data = JSON.parse(decodeURIComponent(req.body));
+        data = req.body;
       } else {
         data = req.body;
       }

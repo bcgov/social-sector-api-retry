@@ -135,7 +135,7 @@ describe('UtilitiesService', () => {
       ['multipart/form-data', '{"param":  "value"}'],
       [
         'application/x-www-form-urlencoded',
-        '"%3Fparam1%3Dvalue1%26param2%3Dvalue2"',
+        '%3Fparam1%3Dvalue1%26param2%3Dvalue2',
       ],
       ['text/plain', 'textexample'],
     ])(
@@ -149,7 +149,7 @@ describe('UtilitiesService', () => {
     it.each([
       ['application/json', 'notAJSON'],
       ['multipart/form-data', 'alsoNotAJSON'],
-      ['application/x-www-form-urlencoded', '?param=notEncoded'],
+      ['application/x-www-form-urlencoded', '%E0%A4%A'],
     ])(`throws if content type doesn't match mime type`, (type, body) => {
       expect(() => {
         validateStringMatchingMimeType(type, body);
