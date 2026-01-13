@@ -1,14 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Request } from 'express';
-import {
-  CreateRequestDto,
-  ExpandedCreateRequestDto,
-} from '../../dto/create-request.dto';
+
+import { CreateRequestDto } from '../../dto/create-request.dto';
 import {
   getContentType,
   UtilitiesService,
 } from '../../helpers/utilities/utilities.service';
-import { dbInsertError, invalidJWTError } from '../../common/constants/errors';
+import { dbInsertError } from '../../common/constants/errors';
 import { RequestDBService } from '../../db/request.service';
 import { EnqueueEntity } from '../../entities/enqueue.entity';
 
@@ -21,7 +18,7 @@ export class EnqueueService {
     private readonly requestDBService: RequestDBService,
   ) {}
 
-  async postEnqueueEvent(createRequestDto: CreateRequestDto, req: Request) {
+  async postEnqueueEvent(createRequestDto: CreateRequestDto) {
     // Evaluate request type, reject if applicable
     let upstreamType;
     try {
@@ -32,36 +29,23 @@ export class EnqueueService {
       this.logger.error(error);
       throw error;
     }
-    // Grab info from token for DB object
-    let jwt, insertObject: ExpandedCreateRequestDto, email, idir;
-    try {
-      jwt = this.utilitiesService.grabJWT(req);
-      email = jwt['user_principal_name'] ?? jwt['email'];
-      idir = jwt['idir_username'];
-      if (email == undefined || idir == undefined) {
-        throw new Error(invalidJWTError);
-      }
-      insertObject = {
-        email,
-        idir,
-        firstName: jwt['given_name'],
-        lastName: jwt['family_name'],
-        upstreamType,
-        outboundUrl: createRequestDto.outboundUrl,
-        httpMethod: createRequestDto.httpMethod,
-        contentType: getContentType(createRequestDto),
-        headers: createRequestDto.headers
-          ? JSON.parse(createRequestDto.headers)
-          : undefined,
-        params: createRequestDto.params
-          ? JSON.parse(createRequestDto.params)
-          : undefined,
-        body: createRequestDto.body,
-      };
-    } catch (error) {
-      this.logger.error(error);
-      throw new BadRequestException([invalidJWTError]);
-    }
+    const insertObject = {
+      email: createRequestDto.email,
+      idir: createRequestDto.idir,
+      firstName: createRequestDto.firstName,
+      lastName: createRequestDto.lastName,
+      upstreamType,
+      outboundUrl: createRequestDto.outboundUrl,
+      httpMethod: createRequestDto.httpMethod,
+      contentType: getContentType(createRequestDto),
+      headers: createRequestDto.headers
+        ? JSON.parse(createRequestDto.headers)
+        : undefined,
+      params: createRequestDto.params
+        ? JSON.parse(createRequestDto.params)
+        : undefined,
+      body: createRequestDto.body,
+    };
 
     // Insert into DB and add to queue
     let result;

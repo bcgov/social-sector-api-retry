@@ -1,24 +1,78 @@
 import {
+  IsEmail,
   IsEnum,
   IsJSON,
   IsNotEmpty,
   IsOptional,
+  IsString,
   IsUrl,
   MaxLength,
 } from 'class-validator';
 import { HttpMethod } from '../common/constants/enumerations';
 import { Exclude, Expose, Transform } from 'class-transformer';
 import { ApiProperty, ApiSchema } from '@nestjs/swagger';
-import { urlMax } from '../common/constants/parameter-constants';
+import {
+  emailMax,
+  idirMax,
+  nameMax,
+  urlMax,
+} from '../common/constants/parameter-constants';
 import {
   getContentType,
   validateStringFileSize,
   validateStringMatchingMimeType,
 } from '../helpers/utilities/utilities.service';
+import { BadRequestException } from '@nestjs/common';
+import { bodyNotStringError } from '../common/constants/errors';
 
 @Exclude()
 @ApiSchema({ name: 'CreateRequest' })
 export class CreateRequestDto {
+  @IsNotEmpty()
+  @IsEmail()
+  @MaxLength(emailMax)
+  @Expose()
+  @ApiProperty({
+    example: 'example@gmail.com',
+    description:
+      'The email to send progress notifications of the request status to.',
+    maxLength: emailMax,
+  })
+  email: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(idirMax)
+  @Expose()
+  @ApiProperty({
+    example: 'idirHere',
+    description: 'The IDIR of the user making the request.',
+    maxLength: idirMax,
+  })
+  idir;
+
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(nameMax)
+  @Expose()
+  @ApiProperty({
+    example: 'idirHere',
+    description: 'The first name of the user making the request.',
+    maxLength: nameMax,
+  })
+  firstName: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(nameMax)
+  @Expose()
+  @ApiProperty({
+    example: 'idirHere',
+    description: 'The last name of the user making the request.',
+    maxLength: nameMax,
+  })
+  lastName: string;
+
   @IsNotEmpty()
   @IsUrl()
   @MaxLength(urlMax)
@@ -65,6 +119,9 @@ export class CreateRequestDto {
     if (value == undefined) {
       return value;
     }
+    if (typeof value !== 'string') {
+      throw new BadRequestException([bodyNotStringError]);
+    }
     validateStringFileSize(value);
     const type = getContentType(obj);
     validateStringMatchingMimeType(type, value);
@@ -93,9 +150,9 @@ export class ExpandedCreateRequestDto {
 
   email: string;
 
-  firstName?: string;
+  firstName: string;
 
-  lastName?: string;
+  lastName: string;
 
   upstreamType: string;
 
