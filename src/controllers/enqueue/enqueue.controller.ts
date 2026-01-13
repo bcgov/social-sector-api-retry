@@ -3,7 +3,6 @@ import {
   ClassSerializerInterceptor,
   Controller,
   Post,
-  Req,
   UseInterceptors,
   ValidationPipe,
 } from '@nestjs/common';
@@ -16,7 +15,6 @@ import {
   ApiOperation,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Request } from 'express';
 import { CONTENT_TYPE } from '../../common/constants/parameter-constants';
 import { CreateRequestDto } from '../../dto/create-request.dto';
 import { EnqueueService } from './enqueue.service';
@@ -56,8 +54,7 @@ export class EnqueueController {
       },
     },
   })
-  async postSingleCaseInPersonVisitRecord(
-    @Req() req: Request,
+  async postSingleRequest(
     @Body(
       new ValidationPipe({
         transform: true,
@@ -67,6 +64,6 @@ export class EnqueueController {
     )
     createRequestDto: CreateRequestDto,
   ): Promise<EnqueueEntity> {
-    return await this.enqueueService.postEnqueueEvent(createRequestDto, req);
+    return await this.enqueueService.postEnqueueEvent(createRequestDto);
   }
 }

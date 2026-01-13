@@ -9,13 +9,11 @@ import { UtilitiesService } from '../../helpers/utilities/utilities.service';
 import { DataSource } from 'typeorm';
 import { EnqueueService } from './enqueue.service';
 import { EnqueueResponseExample } from '../../entities/enqueue.entity';
-import { getMockReq } from '@jest-mock/express';
 import { HttpMethod, UpstreamType } from '../../common/constants/enumerations';
 
 describe('EnqueueController', () => {
   let controller: EnqueueController;
   let enqueueService: EnqueueService;
-  const req = getMockReq();
 
   const mockQueue: any = {
     add: jest.fn(),
@@ -60,7 +58,7 @@ describe('EnqueueController', () => {
     expect(controller).toBeDefined();
   });
 
-  describe('postSingleCaseInPersonVisitRecord', () => {
+  describe('postSingleRequest tests', () => {
     it('should return entity info given good input', async () => {
       const spy = jest
         .spyOn(enqueueService, 'postEnqueueEvent')
@@ -68,13 +66,14 @@ describe('EnqueueController', () => {
       const body = {
         outboundUrl: 'http://www.gov.bc.ca/endpointHere',
         httpMethod: HttpMethod.Post,
+        email: 'example@gmail.com',
+        firstName: 'First',
+        lastName: 'Last',
+        idir: 'idirHere',
       };
 
-      const result = await controller.postSingleCaseInPersonVisitRecord(
-        req,
-        body,
-      );
-      expect(spy).toHaveBeenCalledWith(body, req);
+      const result = await controller.postSingleRequest(body);
+      expect(spy).toHaveBeenCalledWith(body);
       expect(result).toEqual(EnqueueResponseExample);
     });
   });
