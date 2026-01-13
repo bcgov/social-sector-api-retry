@@ -129,3 +129,13 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: BODY_SIZE_LIMIT
+  - name: SERVER_CERT
+    valueFrom:
+      secretKeyRef:
+          name: mutual-authentication-mtls
+          key: QUEUE_SERVER_CERT
+  - name: SERVER_KEY
+    valueFrom:
+      secretKeyRef:
+          name: mutual-authentication-mtls
+          key: QUEUE_SERVER_KEY
