@@ -26,9 +26,14 @@ export class MailerService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     this.transporter.verify((error, success) => {
       if (error) {
-        this.logger.error(error);
+        this.logger.error({
+          msg: `Email service verfication check: Error`,
+          error,
+        });
       } else {
-        this.logger.log('Email service is ready');
+        this.logger.log(
+          'Email service verfication check: Email service is ready',
+        );
       }
     });
   }

@@ -112,7 +112,7 @@ export class OutboundQueueWorker extends WorkerHost {
     }
 
     // Else, email result and succeed job (regardless of email success)
-    if (statusCode >= 400) {
+    if (statusCode >= 300) {
       await this.mailerService.sendFail(
         requestData.email,
         requestData.id,
