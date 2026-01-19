@@ -12,10 +12,11 @@ import { RequestDBService } from '../../db/request.service';
 import { UtilitiesService } from '../utilities/utilities.service';
 import { Job } from 'bullmq';
 import { mock } from '@suites/doubles.jest';
-import { AxiosError, AxiosRequestHeaders } from 'axios';
+import { AxiosError, AxiosRequestHeaders, AxiosResponse } from 'axios';
 import { JwtModule } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
 import { OutboundQueueService } from './outbound-queue.service';
+import { MailerService } from '../mailer/mailer.service';
 
 describe('OutboundQueueWorker', () => {
   let outboundQueueWorker: OutboundQueueWorker;
@@ -70,6 +71,13 @@ describe('OutboundQueueWorker', () => {
         RequestDBService,
         { provide: getRepositoryToken(Request), useValue: {} },
         { provide: DataSource, useValue: {} },
+        {
+          provide: MailerService,
+          useValue: {
+            sendSuccess: jest.fn(),
+            sendFail: jest.fn(),
+          },
+        },
       ],
       imports: [JwtModule.register({ global: true })],
     }).compile();
@@ -145,7 +153,9 @@ describe('OutboundQueueWorker', () => {
         .mockResolvedValueOnce(undefined);
       const requestSpy = jest
         .spyOn(requestPreparerService, 'sendOutboundSiebelRequest')
-        .mockResolvedValueOnce(undefined);
+        .mockResolvedValueOnce({
+          status: 200,
+        } as AxiosResponse);
       await outboundQueueWorker.processSiebel(job as unknown as Job);
       expect(dbFindSpy).toHaveBeenCalledTimes(1);
       expect(dbFindSpy).toHaveBeenCalledWith(job.data.id);
@@ -168,9 +178,6 @@ describe('OutboundQueueWorker', () => {
       const dbFindSpy = jest
         .spyOn(requestDBService, 'findOne')
         .mockResolvedValueOnce(req);
-      const dbRemoveSpy = jest
-        .spyOn(requestDBService, 'remove')
-        .mockResolvedValueOnce(undefined);
       const requestSpy = jest
         .spyOn(requestPreparerService, 'sendOutboundSiebelRequest')
         .mockImplementationOnce(async () => {
@@ -185,8 +192,6 @@ describe('OutboundQueueWorker', () => {
       await outboundQueueWorker.processSiebel(job as unknown as Job);
       expect(dbFindSpy).toHaveBeenCalledTimes(1);
       expect(dbFindSpy).toHaveBeenCalledWith(job.data.id);
-      expect(dbRemoveSpy).toHaveBeenCalledTimes(1);
-      expect(dbRemoveSpy).toHaveBeenCalledWith(job.data.id);
       expect(requestSpy).toHaveBeenCalledTimes(1);
       expect(requestSpy).toHaveBeenCalledWith(req);
     });

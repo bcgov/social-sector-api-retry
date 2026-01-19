@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UtilitiesModule } from '../utilities/utilities.module';
 import { UtilitiesService } from '../utilities/utilities.service';
+import { MailerService } from '../mailer/mailer.service';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { UtilitiesService } from '../utilities/utilities.service';
     RequestDBService,
     ConfigService,
     UtilitiesService,
+    MailerService,
   ],
   exports: [OutboundQueueService, OutboundQueueWorker, BullModule],
 })

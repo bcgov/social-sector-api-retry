@@ -12,6 +12,7 @@ import { AxiosError } from 'axios';
 import { UtilitiesService } from '../utilities/utilities.service';
 import { ConfigService } from '@nestjs/config';
 import { UpstreamType } from '../../common/constants/enumerations';
+import { MailerService } from '../mailer/mailer.service';
 
 /*
 	Notes about queue priority and blocking:
@@ -47,6 +48,7 @@ export class OutboundQueueWorker extends WorkerHost {
     @InjectQueue('outbound') private readonly outboundQueue: Queue,
     private readonly utilitiesService: UtilitiesService,
     private readonly configService: ConfigService,
+    private readonly mailerService: MailerService,
   ) {
     super();
     this.queueDelay = this.configService.get<number>(
@@ -75,8 +77,14 @@ export class OutboundQueueWorker extends WorkerHost {
     // Fetch request information
     const requestData = await this.requestDBservice.findOne(job.data.id);
     // Try upstream request
+    let statusCode,
+      response,
+      errorMessage = ``;
     try {
-      await this.requestPreparerService.sendOutboundSiebelRequest(requestData);
+      response =
+        await this.requestPreparerService.sendOutboundSiebelRequest(
+          requestData,
+        );
     } catch (error) {
       if (error instanceof AxiosError) {
         if (!error.status) {
@@ -92,18 +100,34 @@ export class OutboundQueueWorker extends WorkerHost {
           //service unavailable
           throw error; // moves to failed state for retry
         }
+        statusCode = error.status;
+        errorMessage = error.message;
       } else {
         this.logger.error(error);
         throw error;
       }
     }
+    if (!statusCode) {
+      statusCode = response.status;
+    }
 
     // Else, email result and succeed job (regardless of email success)
-    // TODO: Add email processor
-
-    // Update DB states and complete job
-    await this.requestDBservice.remove(job.data.id);
-    this.logger.log(`Completed upstream request with id '${job.data.id}'`);
+    if (statusCode >= 400) {
+      await this.mailerService.sendFail(
+        requestData.email,
+        requestData.id,
+        statusCode.toString(),
+        errorMessage,
+      );
+      this.logger.log(
+        `Upstream request with id '${job.data.id}' had error with status ${statusCode.toString()}, preserving DB entry`,
+      );
+    } else {
+      await this.mailerService.sendSuccess(requestData.email, requestData.id);
+      // Update DB states and complete job
+      await this.requestDBservice.remove(job.data.id);
+      this.logger.log(`Completed upstream request with id '${job.data.id}'`);
+    }
   }
 
   @OnWorkerEvent('failed')

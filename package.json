@@ -43,6 +43,7 @@
     "class-validator": "^0.14.3",
     "dotenv": "^17.2.3",
     "nestjs-pino": "^4.4.1",
+    "nodemailer": "^7.0.12",
     "pg": "^8.16.3",
     "pg-query-stream": "^4.10.3",
     "pino-http": "^10.5.0",
@@ -64,6 +65,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.7",
+    "@types/nodemailer": "^7.0.5",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
@@ -100,8 +102,8 @@
       "!**/*.entity.(t|j)s",
       "!**/configuration.(t|j)s",
       "!**/db/migrations/*.(t|j)s",
-      "!**/db/*.(t|j)s", 
-	  "!**/controllers/test/*.(t|j)s"
+      "!**/db/*.(t|j)s",
+      "!**/controllers/test/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
