@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from '../../db/entities/request.entity';
 import { firstValueFrom } from 'rxjs';
 import { TokenRefresherService } from '../token-refresher/token-refresher.service';
+import { AxiosResponse } from 'axios';
 
 @Injectable()
 export class RequestPreparerService {
@@ -14,7 +15,9 @@ export class RequestPreparerService {
     private readonly tokenRefresherService: TokenRefresherService,
   ) {}
 
-  async sendOutboundSiebelRequest(req: Partial<Request>) {
+  async sendOutboundSiebelRequest(
+    req: Partial<Request>,
+  ): Promise<AxiosResponse> {
     const token = await this.tokenRefresherService.refreshUpstreamBearerToken();
     if (token === undefined) {
       throw new Error('Upstream auth failed');

@@ -42,4 +42,14 @@ export default () => ({
   authorizedUrls: {
     siebel: process.env.SIEBEL_UPSTREAM_URL,
   },
+  mail: {
+    host: process.env.MAIL_HOST,
+    port: Number.parseInt(process.env.MAIL_PORT),
+    secure: process.env.MAIL_SECURE === 'true',
+    auth: process.env.MAIL_AUTH === 'true',
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASSWORD,
+    pool: process.env.MAIL_POOL_CONNECTION === 'true',
+    sender: process.env.MAIL_SENDER_ADDRESS,
+  },
 });

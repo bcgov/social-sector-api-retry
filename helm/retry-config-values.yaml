@@ -139,3 +139,44 @@ env:
       secretKeyRef:
           name: mutual-authentication-mtls
           key: QUEUE_SERVER_KEY
+  - name: MAIL_HOST
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: MAIL_HOST
+  - name: MAIL_PORT
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: MAIL_PORT
+  - name: MAIL_SECURE
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: MAIL_SECURE
+  - name: MAIL_AUTH
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: MAIL_AUTH
+  - name: MAIL_POOL_CONNECTION
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: MAIL_POOL_CONNECTION
+  - name: MAIL_USER
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: MAIL_USER
+  - name: MAIL_PASSWORD
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: MAIL_PASSWORD
+  - name: MAIL_SENDER_ADDRESS
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: MAIL_SENDER_ADDRESS
+          
