@@ -224,11 +224,6 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: NATS_MAX_RECONNECT_ATTEMPTS
-  - name: NATS_QUEUE_RETRY_DELAY_MS
-    valueFrom:
-      configMapKeyRef:
-          name: social-retry-config
-          key: NATS_QUEUE_RETRY_DELAY_MS
   - name: NATS_POLLING_WAIT_MS
     valueFrom:
       configMapKeyRef:

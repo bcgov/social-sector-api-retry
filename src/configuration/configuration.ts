@@ -73,9 +73,6 @@ export default () => ({
     maxReconnectAttempts: Number.parseInt(
       process.env.NATS_MAX_RECONNECT_ATTEMPTS,
     ),
-    queueOptions: {
-      retryDelayMs: Number.parseInt(process.env.NATS_QUEUE_RETRY_DELAY_MS),
-    },
     pollingWait: Number.parseInt(process.env.NATS_POLLING_WAIT_MS),
   },
   chefs: {
