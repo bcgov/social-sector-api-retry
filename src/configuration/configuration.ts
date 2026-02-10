@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { FormType } from '../common/constants/enumerations';
 
 export default () => ({
@@ -68,7 +67,8 @@ export default () => ({
     nkeySeedValue: process.env.NATS_NKEY_SEED_VALUE,
     streamName: process.env.NATS_STREAM_NAME,
     host: process.env.NATS_HOST,
-    durableName: process.env.NATS_DURABLE_NAME ?? randomUUID(),
+    durableName:
+      process.env.NATS_DURABLE_NAME ?? 'da166e52-19fb-47ab-bdc8-6f06b69e29e8',
     reconnectTimeWait: Number.parseInt(process.env.NATS_RECONNECT_TIME_WAIT),
     maxReconnectAttempts: Number.parseInt(
       process.env.NATS_MAX_RECONNECT_ATTEMPTS,

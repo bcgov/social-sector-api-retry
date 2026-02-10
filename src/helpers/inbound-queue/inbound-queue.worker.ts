@@ -19,6 +19,7 @@ import {
   unsupportedChefsFormTypeError,
 } from '../../common/constants/errors';
 import {
+  chefsRetryWaitSeconds,
   CONTENT_TYPE,
   trustedIdirHeaderName,
   uniformResponseParamName,
@@ -143,7 +144,7 @@ export class InboundQueueWorker extends WorkerHost {
         if (error.status === HttpStatusCode.TooManyRequests) {
           const retryAfter = error.response.headers[`retry-after`]
             ? Number.parseInt(error.response.headers[`retry-after`])
-            : 60;
+            : chefsRetryWaitSeconds;
           this.logger.error(
             `Rate limited, pausing queue for ${retryAfter} seconds...`,
           );

@@ -4,6 +4,7 @@ const maxFileSizeBytes = 5242880; // 5MiB
 const emailMax = 300;
 const idirMax = 100;
 const nameMax = 150;
+const chefsRetryWaitSeconds = 60;
 const upstreamDateFormatNoTime = 'MM/dd/yyyy';
 const uniformResponseParamName = 'uniformresponse';
 const trustedIdirHeaderName = 'X-ICM-TrustedUsername';
@@ -15,6 +16,7 @@ export {
   emailMax,
   idirMax,
   nameMax,
+  chefsRetryWaitSeconds,
   upstreamDateFormatNoTime,
   uniformResponseParamName,
   trustedIdirHeaderName,

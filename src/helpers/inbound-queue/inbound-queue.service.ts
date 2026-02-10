@@ -1,24 +1,15 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { ConfigService } from '@nestjs/config';
+
 import { MessageClass, MessageType } from '../../common/constants/enumerations';
 import { JsMsg, JSONCodec } from 'nats.ws';
 
 @Injectable()
 export class InboundQueueService implements OnApplicationBootstrap {
-  backoffDelay: number;
-
   private readonly logger = new Logger(InboundQueueService.name);
 
-  constructor(
-    @InjectQueue('inbound') private readonly inboundQueue: Queue,
-    private readonly configService: ConfigService,
-  ) {
-    this.backoffDelay = this.configService.get<number>(
-      'nats.queueOptions.backoffDelayMs',
-    );
-  }
+  constructor(@InjectQueue('inbound') private readonly inboundQueue: Queue) {}
 
   async onApplicationBootstrap() {
     await this.resumeInboundQueue(); // restart queue if paused
@@ -53,7 +44,7 @@ export class InboundQueueService implements OnApplicationBootstrap {
     const submissionId = data['meta']['submissionId'];
     if (data['meta']['draft'] === true) {
       this.logger.log(
-        `Submission with id ${submissionId} is a draft, ignoring`,
+        `Submission with id ${submissionId} is a draft, ignoring...`,
       );
       return;
     }
