@@ -8,11 +8,15 @@ import {
   maxFileSizeError,
   unauthorizedURLError,
 } from '../../common/constants/errors';
-import { maxFileSizeBytes } from '../../common/constants/parameter-constants';
+import {
+  maxFileSizeBytes,
+  upstreamDateFormatNoTime,
+} from '../../common/constants/parameter-constants';
 import { isMimeType } from 'class-validator';
 import { ConfigService } from '@nestjs/config';
 import { UpstreamType } from '../../common/constants/enumerations';
 import { JwtService } from '@nestjs/jwt';
+import { DateTime } from 'luxon';
 
 @Injectable()
 export class UtilitiesService {
@@ -56,6 +60,20 @@ export class UtilitiesService {
     } catch {
       throw new BadRequestException([unauthorizedURLError]);
     }
+  }
+  /**
+   * Converts an ISO 8601 formatted string to the MM/dd/yyyy HH:mm:ss format.
+   * @param isoDate an ISO 8601 formatted string. Assumes the date given is provided in UTC
+   * @returns string formatted date for upstream use if valid ISO 8601 date is provided, or undefined if not
+   */
+  convertISODateToUpstreamFormatNoTime(isoDate: string): string | undefined {
+    const upstreamDate = DateTime.fromISO(isoDate.trim(), {
+      zone: 'UTC',
+    }).toFormat(upstreamDateFormatNoTime);
+    if (upstreamDate === 'Invalid DateTime') {
+      return undefined;
+    }
+    return upstreamDate;
   }
 }
 

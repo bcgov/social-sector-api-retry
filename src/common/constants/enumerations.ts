@@ -1,5 +1,6 @@
 enum UpstreamType {
   Siebel = 'siebel',
+  FormSubmission = 'formSubmission',
 }
 
 enum HttpMethod {
@@ -8,4 +9,20 @@ enum HttpMethod {
   Put = 'PUT',
 }
 
-export { UpstreamType, HttpMethod };
+enum MessageClass {
+  Submission = 'submission',
+  Schema = 'schema',
+}
+
+enum MessageType {
+  Created = 'created',
+  Deleted = 'deleted',
+  Modified = 'modified',
+}
+
+enum FormType {
+  Memo = 'memo',
+  Invalid = 'invalid',
+}
+
+export { UpstreamType, HttpMethod, MessageClass, MessageType, FormType };
