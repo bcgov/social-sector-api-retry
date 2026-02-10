@@ -1,8 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RequestPreparerService } from './request-preparer.service';
 import { Request } from '../../db/entities/request.entity';
-import configuration from '../../configuration/configuration';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { TokenRefresherService } from '../token-refresher/token-refresher.service';
 import { HttpService } from '@nestjs/axios';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -14,6 +13,7 @@ import {
   InternalAxiosRequestConfig,
   RawAxiosRequestHeaders,
 } from 'axios';
+import { FormType } from '../../common/constants/enumerations';
 
 describe('RequestPreparerService', () => {
   let service: RequestPreparerService;
@@ -21,9 +21,15 @@ describe('RequestPreparerService', () => {
   let tokenRefresherService: TokenRefresherService;
   const { mockClear } = getMockRes();
 
+  const eventBody = {
+    meta: {
+      formId: 'formId',
+      submissionId: 'submissionId',
+    },
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ load: [configuration] })],
       providers: [
         RequestPreparerService,
         TokenRefresherService,
@@ -31,6 +37,7 @@ describe('RequestPreparerService', () => {
           provide: HttpService,
           useValue: {
             request: () => jest.fn(),
+            get: () => jest.fn(),
           },
         },
         {
@@ -40,7 +47,25 @@ describe('RequestPreparerService', () => {
             get: () => 'Bearer token',
           },
         },
-        ConfigService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              const lookup = {
+                ['chefs.formIds']: {
+                  [FormType.Memo]: 'formId',
+                },
+                ['chefs.apiKeys']: {
+                  [FormType.Memo]: 'apiKey',
+                },
+                ['chefs.endpointUrls.getFormSubmission']:
+                  '/endpointhere/formSubmissionId',
+                ['chefs.endpointUrls.baseUrl']: 'http://baseurl',
+              };
+              return lookup[key];
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -168,6 +193,24 @@ describe('RequestPreparerService', () => {
         service.sendOutboundSiebelRequest(req),
       ).rejects.toHaveProperty('message', 'Upstream auth failed');
       expect(spy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getFormSubmissionPayload tests', () => {
+    it('provides a response on sucessful http service call', async () => {
+      const spy = jest.spyOn(httpService, 'get').mockReturnValueOnce(
+        of({
+          data: {},
+          headers: {} as RawAxiosRequestHeaders,
+          status: 200,
+          statusText: 'OK',
+        } as AxiosResponse<any, any>),
+      );
+      const [result, formName] =
+        await service.getFormSubmissionPayload(eventBody);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(result.data).toEqual({});
+      expect(formName).toEqual(FormType.Memo);
     });
   });
 });

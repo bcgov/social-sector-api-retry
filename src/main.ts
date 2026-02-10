@@ -18,6 +18,8 @@ async function bootstrap() {
     },
   });
   app.useLogger(app.get(Logger));
+  const logger = new NestJSLogger();
+  app.enableShutdownHooks();
 
   const config = new DocumentBuilder()
     .setTitle('Social Retry')
@@ -34,7 +36,11 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  const logger = new NestJSLogger();
+  if (typeof process.exitCode === 'number' && process.exitCode > 0) {
+    logger.fatal(`App failed to properly start, exiting...`);
+    await app.close();
+    process.exit(process.exitCode);
+  }
   logger.log(`API is running on port: ${port}`, { port });
 }
 bootstrap();

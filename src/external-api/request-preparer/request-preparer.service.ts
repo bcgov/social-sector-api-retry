@@ -4,16 +4,29 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from '../../db/entities/request.entity';
 import { firstValueFrom } from 'rxjs';
 import { TokenRefresherService } from '../token-refresher/token-refresher.service';
-import { AxiosResponse } from 'axios';
+import { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { unsupportedChefsFormTypeError } from '../../common/constants/errors';
+import { FormType } from '../../common/constants/enumerations';
 
 @Injectable()
 export class RequestPreparerService {
+  chefsApiKeys: object;
+  chefsFormIds: object;
+  chefsGetSubmissionEndpoint: string;
   private readonly logger = new Logger(RequestPreparerService.name);
+
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly tokenRefresherService: TokenRefresherService,
-  ) {}
+  ) {
+    this.chefsApiKeys = this.configService.get<object>('chefs.apiKeys');
+    this.chefsFormIds = this.configService.get<object>('chefs.formIds');
+    this.chefsGetSubmissionEndpoint = encodeURI(
+      this.configService.get<string>('chefs.endpointUrls.baseUrl') +
+        this.configService.get<string>('chefs.endpointUrls.getFormSubmission'),
+    );
+  }
 
   async sendOutboundSiebelRequest(
     req: Partial<Request>,
@@ -67,5 +80,45 @@ export class RequestPreparerService {
       throw error; // throw to catching function
     }
     return response;
+  }
+
+  checkValidFormType(formId: string): FormType {
+    let submissionFormName = undefined;
+    for (const formName in this.chefsFormIds) {
+      const id = this.chefsFormIds[`${formName}`];
+      if (id === formId) {
+        submissionFormName = formName;
+      }
+    }
+    if (submissionFormName === undefined) {
+      throw new Error(unsupportedChefsFormTypeError);
+    }
+    return submissionFormName as FormType;
+  }
+
+  async getFormSubmissionPayload(
+    data: object,
+  ): Promise<[AxiosResponse, FormType]> {
+    const formId = data['meta']['formId'];
+    const formSubmissionId = data['meta']['submissionId'];
+    const formName = this.checkValidFormType(formId);
+    const url = this.chefsGetSubmissionEndpoint.replace(
+      'formSubmissionId',
+      formSubmissionId,
+    );
+    const axiosConfig: AxiosRequestConfig = {
+      auth: {
+        username: formId,
+        password: this.chefsApiKeys[formName],
+      },
+    };
+
+    let response;
+    try {
+      response = await firstValueFrom(this.httpService.get(url, axiosConfig));
+    } catch (error) {
+      throw error; // throw to catching function
+    }
+    return [response, formName];
   }
 }

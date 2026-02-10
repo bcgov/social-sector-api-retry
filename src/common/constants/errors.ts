@@ -13,6 +13,9 @@ const invalidURLEncodedError = `Body must be valid encoded URL for the applicati
 const invalidMultipartFormError = `Body must be valid JSON for the multipart/form-data content type.`;
 
 const dbInsertError = `Failed to insert request into database.`;
+const dbUpdateError = `Failed to update request in database.`;
+
+const unsupportedChefsFormTypeError = `The submission is from an unsupported form.`;
 
 export {
   maxFileSizeError,
@@ -23,4 +26,6 @@ export {
   invalidURLEncodedError,
   invalidMultipartFormError,
   dbInsertError,
+  dbUpdateError,
+  unsupportedChefsFormTypeError,
 };

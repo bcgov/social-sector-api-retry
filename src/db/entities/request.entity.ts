@@ -50,6 +50,14 @@ export class Request {
   @Column({ type: 'text', nullable: true, name: 'webhook_body' })
   webhookBody?: string;
 
+  @Column({
+    type: 'text',
+    nullable: true,
+    name: 'webhook_form_submission_id',
+    unique: true,
+  })
+  webhookFormSubmissionId?: string;
+
   @Column({ type: 'text', nullable: true, name: 'overall_status' })
   overallStatus?: string; // enum?
 

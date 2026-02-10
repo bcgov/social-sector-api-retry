@@ -52,6 +52,12 @@ export class MailerService {
     }
   }
 
+  async sendWebhookSubmissionSuccess(to: string, confirmationId: string) {
+    const subject = `Retry Mechanism Webhook Submission Notification`;
+    const text = `This is to inform you that your request with confirmation id ${confirmationId} has been added to the queue.`;
+    await this.sendEmail(to, subject, text);
+  }
+
   async sendSuccess(to: string, id: string) {
     const subject = `Retry Mechanism Success Notification`;
     const text =

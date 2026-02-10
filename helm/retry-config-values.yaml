@@ -179,4 +179,83 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: MAIL_SENDER_ADDRESS
-          
+  - name: NATS_FILTER_SUBJECTS
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: NATS_FILTER_SUBJECTS
+  - name: NATS_MAX_MESSAGES
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: NATS_MAX_MESSAGES
+  - name: NATS_SOURCE_FILTER
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: NATS_SOURCE_FILTER
+  - name: NATS_NKEY_SEED_VALUE
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: NATS_NKEY_SEED_VALUE
+  - name: NATS_STREAM_NAME
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: NATS_STREAM_NAME
+  - name: NATS_HOST
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: NATS_HOST
+  - name: NATS_DURABLE_NAME
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: NATS_DURABLE_NAME
+  - name: NATS_RECONNECT_TIME_WAIT
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: NATS_RECONNECT_TIME_WAIT
+  - name: NATS_MAX_RECONNECT_ATTEMPTS
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: NATS_MAX_RECONNECT_ATTEMPTS
+  - name: NATS_POLLING_WAIT_MS
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: NATS_POLLING_WAIT_MS
+  - name: CHEFS_BASE_URL
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: CHEFS_BASE_URL
+  - name: CHEFS_GET_FORM_SUBMISSION_ENDPOINT
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: CHEFS_GET_FORM_SUBMISSION_ENDPOINT
+  - name: CHEFS_MEMO_API_KEY
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: CHEFS_MEMO_API_KEY
+  - name: CHEFS_MEMO_FORM_ID
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: CHEFS_MEMO_FORM_ID
+  - name: SIEBEL_IN_PERSON_VISITS_ENDPOINT
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: SIEBEL_IN_PERSON_VISITS_ENDPOINT
+  - name: SIEBEL_IN_PERSON_VISITS_WORKSPACE
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: SIEBEL_IN_PERSON_VISITS_WORKSPACE

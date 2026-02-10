@@ -15,6 +15,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { HelpersModule } from './helpers/helpers.module';
 import { ExternalApiModule } from './external-api/external-api.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ScheduleModule } from '@nestjs/schedule';
+import { NatsModule } from './helpers/nats/nats.module';
 
 @Module({
   imports: [
@@ -134,9 +136,11 @@ import { CacheModule } from '@nestjs/cache-manager';
         },
       }),
     }),
+    ScheduleModule.forRoot(),
     ControllersModule,
     HelpersModule,
     ExternalApiModule,
+    NatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

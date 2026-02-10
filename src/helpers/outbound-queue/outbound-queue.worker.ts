@@ -102,6 +102,7 @@ export class OutboundQueueWorker extends WorkerHost {
         }
         statusCode = error.status;
         errorMessage = error.message;
+        this.logger.error(error.stack);
       } else {
         this.logger.error(error);
         throw error;

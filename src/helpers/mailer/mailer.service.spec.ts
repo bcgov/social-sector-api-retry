@@ -43,6 +43,16 @@ describe('MailerService', () => {
     });
   });
 
+  describe('sendWebhookSubmissionSuccess tests', () => {
+    it('should send a success message', async () => {
+      const sendSpy = jest
+        .spyOn(transporter, 'sendMail')
+        .mockImplementationOnce(async () => {});
+      await service.sendWebhookSubmissionSuccess('toEmail', 'confirmId');
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('sendSuccess tests', () => {
     it('should send a success message', async () => {
       const sendSpy = jest
