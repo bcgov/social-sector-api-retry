@@ -9,12 +9,16 @@ flowchart TD
   Retry[Retry API]
   Db[(DB Storage)]
   Icm[ICM REST framework]
+  Events[Event stream service]
 
   User --> |Authenticate with OIDC| IdBroker
   User --> |Request with access token| RevProxy
+  User --> |Publish messages| Events
+  Events --> |Read messages<br>via service account| Retry
+  Retry --> |Event response<br>GET details| User
 
   RevProxy <--> |Introspect access token| IdBroker
-  RevProxy --> |Forward request| Container
+  RevProxy --> |Forward request| Retry
 
   subgraph Container["MCS-Silver"]
     direction TB
