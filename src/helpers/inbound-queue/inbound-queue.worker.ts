@@ -164,14 +164,22 @@ export class InboundQueueWorker extends WorkerHost {
     return updateObject;
   }
 
+  // Note: This function assumes that Siebel field names do not contain '.'
   convertFormKeytoPath(key: string) {
     return key.split('.');
   }
 
+  // Note: This function assumes that Siebel field names do not contain '>'
   convertJsonpathToPath(property: string) {
     return property.split('>');
   }
 
+  /**
+   * Recursively grab mappings from the property "jsonpath", where the key is the how it appears in submission data
+   * (seperated by '.') and the value is how it should appear in the output (seperated by '>')
+   * @param components the root components object in the version schema
+   * @param schemaMap reference to an empty object, which will become your mapping
+   */
   grabDynamicFieldMappingsRecursive(
     components: Array<object> | undefined | null,
     schemaMap: object,
@@ -197,6 +205,19 @@ export class InboundQueueWorker extends WorkerHost {
     }
   }
 
+  /**
+   * Maps any keys that are referenced as an intermediate part of a key, but currently don't have their own discrete mapping.
+   * For instance, with the input schemaMap:
+   * {
+   * 	"Root.ChildA.ChildB" : "A>B>C"
+   * }
+   * The output would become
+   * {
+   * 	"Root" : "A",
+   * 	"Root.ChildA" : "A>B",
+   * 	"Root.ChildA.ChildB" : "A>B>C"
+   * }
+   */
   mapRootKeys(schemaMap: object) {
     const additionMap = {};
     for (const [submissionKey, outputKey] of Object.entries(schemaMap)) {
@@ -227,47 +248,67 @@ export class InboundQueueWorker extends WorkerHost {
     map: object,
   ): [string | undefined, string] {
     if (currentPath.includes('.')) {
+      // it is nested at least once
       const keyPart = currentPath.slice(
         currentPath.lastIndexOf('.'),
         currentPath.length,
-      );
-      currentPath = currentPath.slice(0, currentPath.lastIndexOf('.'));
+      ); // grabs the key preceded by '.'
+      currentPath = currentPath.slice(0, currentPath.lastIndexOf('.')); // grabs the rest of the path
       if (currentPath.includes('.')) {
+        // it is nested at least twice: we want to remove the middle path component and not the end part
         currentPath =
           currentPath.slice(0, currentPath.lastIndexOf('.')) + keyPart;
       } else {
+        // remove the '.' from the path as it is root level
         currentPath = keyPart.slice(1, keyPart.length);
       }
+      // Try the rename function to see if it exists on this level
       const newKey = renameFn(map, currentPath);
       if (newKey == undefined) {
+        // if not try again
         this.checkNameBackwardsRecursive(renameFn, currentPath, map);
       }
       return [newKey, currentPath];
     } else {
+      // base case, the key doesn't exist on any level
       return [undefined, currentPath];
     }
   }
 
+  /**
+   * Creates a new object with renamed keys of the submission obj based on the provided map.
+   * If a mapping does not exist for a submission property, that property is not included in the output.
+   * Note that it is assumed that outputs are at the same level and location of mapping as the submission data inputs.
+   * @param obj the submission object
+   * @param renameFn the function that describes how rename based on the map
+   * @param currentPath the current property path we are at in the submission object
+   * @param map the map that describes how submission data is related to the desired oiutput data
+   * @returns a mapped object.
+   */
   renameKeys(obj, renameFn, currentPath: string, map: object) {
     if (Array.isArray(obj)) {
+      // Required to properly handle arrays.
       return obj.map((v) => this.renameKeys(v, renameFn, currentPath, map));
     } else if (obj !== null && typeof obj === 'object') {
       return Object.entries(obj).reduce((result, [key, value]) => {
         if (currentPath !== '') {
+          // Used for nested (non-root) properties
           currentPath = currentPath + '.' + key;
         } else {
-          currentPath = key;
+          currentPath = key; // Used for root properties
         }
 
         let newKey = renameFn(map, currentPath);
 
         if (newKey == undefined) {
+          // For nested properties, step backwards to see if it is on the same level as the previous property
           [newKey, currentPath] = this.checkNameBackwardsRecursive(
             renameFn,
             currentPath,
             map,
           );
           if (newKey == undefined) {
+            // The key doesn't exist at any level of the object hierarchy, skip
             return result;
           }
         }
@@ -275,10 +316,12 @@ export class InboundQueueWorker extends WorkerHost {
           typeof obj[currentPath] !== 'object' &&
           !currentPath.includes('.')
         ) {
+          // Reset current path to base level when you reach the root object
           currentPath = '';
         }
 
         if (result[newKey] == undefined) {
+          // Call the function to map all nested keys
           result[newKey] = this.renameKeys(value, renameFn, currentPath, map);
         }
         return result;
@@ -287,10 +330,10 @@ export class InboundQueueWorker extends WorkerHost {
     return obj;
   }
 
-  renameWithMap(map: object, key: string) {
+  renameWithMap(map: object, key: string): string | undefined {
     const newKey = map[key];
     if (newKey == undefined) return undefined;
-    return newKey.split('>').pop();
+    return newKey.split('>').pop(); // returns last element
   }
 
   formatDynamicForUpstream(body: object) {

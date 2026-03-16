@@ -72,7 +72,9 @@ export default () => ({
     sender: process.env.MAIL_SENDER_ADDRESS,
   },
   nats: {
-    filterSubjects: process.env.NATS_FILTER_SUBJECTS.split(/\n/),
+    filterSubjects: process.env.NATS_FILTER_SUBJECTS
+      ? process.env.NATS_FILTER_SUBJECTS.split(/\n/)
+      : undefined,
     maxMessages: Number.parseInt(process.env.NATS_MAX_MESSAGES),
     sourceFilter: process.env.NATS_SOURCE_FILTER,
     nkeySeedValue: process.env.NATS_NKEY_SEED_VALUE,
