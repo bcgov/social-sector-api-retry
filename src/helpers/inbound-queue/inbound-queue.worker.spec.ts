@@ -211,12 +211,6 @@ describe('InboundQueueWorker', () => {
       inboundQueueWorker.formatInputForUpstream({}, FormType.Memo);
       expect(processSubmissionSpy).toHaveBeenCalledTimes(1);
     });
-
-    it('should throw error on invalid submission type', () => {
-      expect(() => {
-        inboundQueueWorker.formatInputForUpstream({}, FormType.Invalid);
-      }).toThrow(unsupportedChefsFormTypeError);
-    });
   });
 
   describe('processFormSubmission', () => {

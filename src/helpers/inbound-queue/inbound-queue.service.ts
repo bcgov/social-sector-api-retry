@@ -42,6 +42,7 @@ export class InboundQueueService implements OnApplicationBootstrap {
     messageType: string,
   ) {
     const submissionId = data['meta']['submissionId'];
+    const formId = data['meta']['formId'];
     if (data['meta']['draft'] === true) {
       this.logger.log(
         `Submission with id ${submissionId} is a draft, ignoring...`,
@@ -50,7 +51,7 @@ export class InboundQueueService implements OnApplicationBootstrap {
     }
     await this.inboundQueue.add(`${messageClass}-${messageType}`, data, {
       attempts: 5,
-      jobId: submissionId,
+      jobId: submissionId + `-` + formId,
       removeOnComplete: true,
     });
   }

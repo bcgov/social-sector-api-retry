@@ -22,7 +22,7 @@ enum MessageType {
 
 enum FormType {
   Memo = 'memo',
-  Invalid = 'invalid',
+  Dynamic = 'dynamic',
 }
 
 export { UpstreamType, HttpMethod, MessageClass, MessageType, FormType };
