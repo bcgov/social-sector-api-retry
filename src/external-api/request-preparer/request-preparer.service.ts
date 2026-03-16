@@ -91,6 +91,11 @@ export class RequestPreparerService {
       }
     }
     if (submissionFormName === undefined) {
+      for (const dynFormId of this.chefsFormIds[FormType.Dynamic]) {
+        if (dynFormId === formId) {
+          return FormType.Dynamic;
+        }
+      }
       throw new Error(unsupportedChefsFormTypeError);
     }
     return submissionFormName as FormType;
@@ -109,7 +114,10 @@ export class RequestPreparerService {
     const axiosConfig: AxiosRequestConfig = {
       auth: {
         username: formId,
-        password: this.chefsApiKeys[formName],
+        password:
+          formName !== FormType.Dynamic
+            ? this.chefsApiKeys[formName]
+            : this.chefsApiKeys[formName][formId],
       },
     };
 

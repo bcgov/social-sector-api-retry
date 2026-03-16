@@ -42,9 +42,20 @@ export default () => ({
     },
     endpointUrls: {
       inPersonVisits: process.env.SIEBEL_IN_PERSON_VISITS_ENDPOINT,
+      [FormType.Dynamic]: process.env.CHEFS_DYNAMIC_FORM_ENDPOINTS
+        ? JSON.parse(process.env.CHEFS_DYNAMIC_FORM_ENDPOINTS)
+        : undefined,
     },
     workspace: {
       inPersonVisits: process.env.SIEBEL_IN_PERSON_VISITS_WORKSPACE,
+      [FormType.Dynamic]: process.env.CHEFS_DYNAMIC_FORM_WORKSPACES
+        ? JSON.parse(process.env.CHEFS_DYNAMIC_FORM_WORKSPACES)
+        : undefined,
+    },
+    method: {
+      [FormType.Dynamic]: process.env.CHEFS_DYNAMIC_FORM_METHODS
+        ? JSON.parse(process.env.CHEFS_DYNAMIC_FORM_METHODS)
+        : undefined,
     },
   },
   authorizedUrls: {
@@ -78,9 +89,15 @@ export default () => ({
   chefs: {
     apiKeys: {
       [FormType.Memo]: process.env.CHEFS_MEMO_API_KEY,
+      [FormType.Dynamic]: process.env.CHEFS_DYNAMIC_API_KEYS
+        ? JSON.parse(process.env.CHEFS_DYNAMIC_API_KEYS)
+        : undefined,
     },
     formIds: {
       [FormType.Memo]: process.env.CHEFS_MEMO_FORM_ID,
+      [FormType.Dynamic]: process.env.CHEFS_DYNAMIC_FORM_IDS
+        ? JSON.parse(process.env.CHEFS_DYNAMIC_FORM_IDS)
+        : undefined,
     },
     endpointUrls: {
       baseUrl: process.env.CHEFS_BASE_URL,

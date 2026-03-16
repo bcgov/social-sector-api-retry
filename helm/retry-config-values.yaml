@@ -259,3 +259,28 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: SIEBEL_IN_PERSON_VISITS_WORKSPACE
+  - name: CHEFS_DYNAMIC_FORM_ENDPOINTS
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: CHEFS_DYNAMIC_FORM_ENDPOINTS
+  - name: CHEFS_DYNAMIC_FORM_WORKSPACES
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: CHEFS_DYNAMIC_FORM_WORKSPACES
+  - name: CHEFS_DYNAMIC_FORM_METHODS
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: CHEFS_DYNAMIC_FORM_METHODS
+  - name: CHEFS_DYNAMIC_API_KEYS
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: CHEFS_DYNAMIC_API_KEYS
+  - name: CHEFS_DYNAMIC_FORM_IDS
+    valueFrom:
+      secretKeyRef:
+          name: social-retry
+          key: CHEFS_DYNAMIC_FORM_IDS
