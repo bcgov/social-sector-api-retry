@@ -58,7 +58,7 @@ describe('MailerService', () => {
       const sendSpy = jest
         .spyOn(transporter, 'sendMail')
         .mockImplementationOnce(async () => {});
-      await service.sendSuccess('toEmail', 'id');
+      await service.sendSuccess('toEmail', 'id', 'rowId');
       expect(sendSpy).toHaveBeenCalledTimes(1);
     });
   });
