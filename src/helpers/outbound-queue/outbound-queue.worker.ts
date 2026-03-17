@@ -131,7 +131,8 @@ export class OutboundQueueWorker extends WorkerHost {
     } else {
       await this.mailerService.sendSuccess(
         requestData.email,
-        response?.data?.Id ?? requestData.id,
+        requestData.id,
+        response?.data?.items[0]?.Id ?? 'unknown',
       );
       // Update DB states and complete job
       await this.requestDBservice.remove(job.data.id);
