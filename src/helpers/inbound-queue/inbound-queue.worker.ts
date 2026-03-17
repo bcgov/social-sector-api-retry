@@ -409,7 +409,16 @@ export class InboundQueueWorker extends WorkerHost {
     }
 
     // Add to outbound queue
-    const updateObject = this.formatInputForUpstream(response.data, formName);
+    let updateObject;
+    try {
+      updateObject = this.formatInputForUpstream(response.data, formName);
+    } catch (error) {
+      // Complete job and delete DB entry if form is not formatted correctly
+      this.logger.error(`Formatting error`);
+      this.logger.error(error);
+      await this.requestDBService.remove(requestData.id);
+      return;
+    }
     let result;
     try {
       result = await this.requestDBService.updateAndAddToQueue(
