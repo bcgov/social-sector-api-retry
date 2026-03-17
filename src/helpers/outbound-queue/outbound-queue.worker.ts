@@ -124,7 +124,10 @@ export class OutboundQueueWorker extends WorkerHost {
         `Upstream request with id '${job.data.id}' had error with status ${statusCode.toString()}, preserving DB entry`,
       );
     } else {
-      await this.mailerService.sendSuccess(requestData.email, requestData.id);
+      await this.mailerService.sendSuccess(
+        requestData.email,
+        response?.data?.Id ?? requestData.id,
+      );
       // Update DB states and complete job
       await this.requestDBservice.remove(job.data.id);
       this.logger.log(`Completed upstream request with id '${job.data.id}'`);
