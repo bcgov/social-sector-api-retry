@@ -58,10 +58,10 @@ export class MailerService {
     await this.sendEmail(to, subject, text);
   }
 
-  async sendSuccess(to: string, id: string) {
+  async sendSuccess(to: string, id: string, rowId: string) {
     const subject = `Retry Mechanism Success Notification`;
     const text =
-      `This is to inform you that your request with id ${id} has succeded. ` +
+      `This is to inform you that your request with id ${id}, rowId ${rowId} has succeded. ` +
       `Please check your upstream system for more information.`;
     await this.sendEmail(to, subject, text);
   }
