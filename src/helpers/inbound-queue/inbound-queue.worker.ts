@@ -206,149 +206,257 @@ export class InboundQueueWorker extends WorkerHost {
   }
 
   /**
-   * Maps any keys that are referenced as an intermediate part of a key, but currently don't have their own discrete mapping.
-   * For instance, with the input schemaMap:
-   * {
-   * 	"Root.ChildA.ChildB" : "A>B>C"
-   * }
-   * The output would become
-   * {
-   * 	"Root" : "A",
-   * 	"Root.ChildA" : "A>B",
-   * 	"Root.ChildA.ChildB" : "A>B>C"
-   * }
+   * Recursively looks for the component with key "Base_Paths"
+   * @param components the root components object in the version schema
+   * @returns the properties of the "Base_Paths" component, or undefined if not found
    */
-  mapRootKeys(schemaMap: object) {
-    const additionMap = {};
-    for (const [submissionKey, outputKey] of Object.entries(schemaMap)) {
-      const submissionPath = this.convertFormKeytoPath(submissionKey);
-      const outputPath = this.convertJsonpathToPath(outputKey as string);
-      if (submissionPath.length != outputPath.length) continue;
-      let currentSubName = submissionPath[0];
-      let currentOutputName = outputPath[0];
-      for (let i = 0; i < submissionPath.length; i = i + 1) {
-        if (i !== 0) {
-          currentSubName = currentSubName + '.' + submissionPath[i];
-          currentOutputName = currentOutputName + '>' + outputPath[i];
-        }
-        if (schemaMap[currentSubName] == undefined) {
-          additionMap[currentSubName] = currentOutputName;
-        }
+  grabJsonBasePathRecursive(
+    components: Array<object> | undefined | null,
+  ): object | undefined {
+    for (const component of components) {
+      if (component['key'] == 'Base_Paths' && component['properties']) {
+        const basePathMap = structuredClone(component['properties']) as object;
+        return basePathMap;
       }
-    }
-    return {
-      ...additionMap,
-      ...schemaMap,
-    };
-  }
-
-  checkNameBackwardsRecursive(
-    renameFn,
-    currentPath: string,
-    map: object,
-  ): [string | undefined, string] {
-    if (currentPath.includes('.')) {
-      // it is nested at least once
-      const keyPart = currentPath.slice(
-        currentPath.lastIndexOf('.'),
-        currentPath.length,
-      ); // grabs the key preceded by '.'
-      currentPath = currentPath.slice(0, currentPath.lastIndexOf('.')); // grabs the rest of the path
-      if (currentPath.includes('.')) {
-        // it is nested at least twice: we want to remove the middle path component and not the end part
-        currentPath =
-          currentPath.slice(0, currentPath.lastIndexOf('.')) + keyPart;
-      } else {
-        // remove the '.' from the path as it is root level
-        currentPath = keyPart.slice(1, keyPart.length);
+      if (
+        typeof component['components'] === 'object' &&
+        component['components'] != null
+      ) {
+        this.grabJsonBasePathRecursive(component['components']);
+      } else if (
+        typeof component['columns'] === 'object' &&
+        component['columns'] != null
+      ) {
+        this.grabJsonBasePathRecursive(component['columns']);
       }
-      // Try the rename function to see if it exists on this level
-      const newKey = renameFn(map, currentPath);
-      if (newKey == undefined) {
-        // if not try again
-        this.checkNameBackwardsRecursive(renameFn, currentPath, map);
-      }
-      return [newKey, currentPath];
-    } else {
-      // base case, the key doesn't exist on any level
-      return [undefined, currentPath];
     }
   }
 
   /**
-   * Creates a new object with renamed keys of the submission obj based on the provided map.
-   * If a mapping does not exist for a submission property, that property is not included in the output.
-   * Note that it is assumed that outputs are at the same level and location of mapping as the submission data inputs.
-   * @param obj the submission object
-   * @param renameFn the function that describes how rename based on the map
-   * @param currentPath the current property path we are at in the submission object
-   * @param map the map that describes how submission data is related to the desired oiutput data
-   * @returns a mapped object.
+   * Replaces base path markers, denoted by $ at the start of a json path, with their respective
+   * base paths as defined by the the base path map.
+   * @param schemaMap the map created by the grabDynamicFieldMappingsRecursive function
+   * @param basePathMap the map created by the grabJsonBasePathRecursive function
    */
-  renameKeys(obj, renameFn, currentPath: string, map: object) {
-    if (Array.isArray(obj)) {
-      // Required to properly handle arrays.
-      return obj.map((v) => this.renameKeys(v, renameFn, currentPath, map));
-    } else if (obj !== null && typeof obj === 'object') {
-      return Object.entries(obj).reduce((result, [key, value]) => {
-        if (currentPath !== '') {
-          // Used for nested (non-root) properties
-          currentPath = currentPath + '.' + key;
-        } else {
-          currentPath = key; // Used for root properties
-        }
-
-        let newKey = renameFn(map, currentPath);
-
-        if (newKey == undefined) {
-          // For nested properties, step backwards to see if it is on the same level as the previous property
-          [newKey, currentPath] = this.checkNameBackwardsRecursive(
-            renameFn,
-            currentPath,
-            map,
-          );
-          if (newKey == undefined) {
-            // The key doesn't exist at any level of the object hierarchy, skip
-            return result;
-          }
-        }
-        if (
-          typeof obj[currentPath] !== 'object' &&
-          !currentPath.includes('.')
-        ) {
-          // Reset current path to base level when you reach the root object
-          currentPath = '';
-        }
-
-        if (result[newKey] == undefined) {
-          // Call the function to map all nested keys
-          result[newKey] = this.renameKeys(value, renameFn, currentPath, map);
-        }
-        return result;
-      }, {});
+  formatSchemaMapWithBasePaths(schemaMap: object, basePathMap: object) {
+    for (const [key, value] of Object.entries(schemaMap)) {
+      if (typeof value === 'object' && value !== null) {
+        this.formatSchemaMapWithBasePaths(value, basePathMap);
+      }
+      if (typeof value === 'string' && value.startsWith('$')) {
+        const basePath = value.substring(1, value.indexOf('>'));
+        schemaMap[key] = (schemaMap[key] as string).replace(
+          '$' + basePath,
+          basePathMap[basePath],
+        );
+      }
     }
-    return obj;
   }
 
-  renameWithMap(map: object, key: string): string | undefined {
-    const newKey = map[key];
-    if (newKey == undefined) return undefined;
-    return newKey.split('>').pop(); // returns last element
+  /**
+   * Finds if any value(s) match the path in the given object. Works for paths with objects and arrays.
+   * @param obj the input object
+   * @param pathArray an array denoting the path, with [ at the end of each string denoting an array path
+   * @returns the value(s) found at the path specified, or undefined if not found
+   */
+  checkObjectPathWithArray(obj, pathArray) {
+    let datum = obj;
+    for (let i = 0; i < pathArray.length; i = i + 1) {
+      if (typeof datum === 'undefined') {
+        return undefined;
+      }
+      if (Array.isArray(datum)) {
+        // prev path is array
+        const reducedDatum = [];
+        let hasNonUndefinedValue = false;
+        for (const innerValue of datum) {
+          if (typeof innerValue[pathArray[i]] !== 'undefined') {
+            hasNonUndefinedValue = true;
+            reducedDatum.push(innerValue[pathArray[i]]);
+          } else {
+            reducedDatum.push(undefined);
+          }
+        }
+        if (!hasNonUndefinedValue) {
+          return undefined;
+        }
+        datum = reducedDatum;
+      } else {
+        datum =
+          datum[pathArray[i]] !== undefined ? datum[pathArray[i]] : undefined;
+      }
+    }
+    if (
+      Array.isArray(datum) &&
+      datum.filter((value) => typeof value !== 'undefined').length === 0
+    ) {
+      return undefined;
+    }
+    return datum;
+  }
+
+  /**
+   * Maps part of the output object based on ther input submission, and a single given submission and output path.
+   * @param submission the data as submitted
+   * @param outputObject the current output object for the mapping
+   * @param submissionPath the submission path as string, with parts separated by "."
+   * @param outputPath the output path as string, with parts separated by ">" and arrays denoted by "["
+   * @returns the outputObject, with the mapping adding for all applicable items if they exist in the submission
+   */
+  mapSubmissionUsingSchemaRecursive(
+    submission: object,
+    outputObject: object,
+    submissionPath,
+    outputPath,
+  ): object {
+    // Get submission path as array
+    const submissionPathArray = this.convertFormKeytoPath(submissionPath);
+
+    // Check if submission path exists
+    const submissionInfo = this.checkObjectPathWithArray(
+      submission,
+      submissionPathArray,
+    );
+
+    if (submissionInfo !== undefined) {
+      // Get output path as array
+      const outputPathArray = this.convertJsonpathToPath(outputPath);
+      // Map the object recursively
+      return this.mapSubmissionInnerObjectRecursive(
+        submissionInfo,
+        outputObject,
+        outputPathArray,
+      );
+    }
+    return outputObject;
+  }
+
+  /**
+   * Maps part of the output object based on ther input submission, and a single given submission and output path.
+   * @param submissionInfo the data as submitted
+   * @param outputObject the current output object for the mapping
+   * @param outputPathArray the output path as an array
+   * @returns the output object
+   */
+  mapSubmissionInnerObjectRecursive(
+    submissionInfo,
+    outputObject,
+    outputPathArray,
+  ) {
+    // Create internal structure, if it doesn't exist
+    let referenceObject = outputObject;
+    for (let i = 0; i < outputPathArray.length; i = i + 1) {
+      let output = outputPathArray[i];
+      // Determine if previous item is an array
+      if (Array.isArray(referenceObject)) {
+        // Create inner objects for next property
+        if (Array.isArray(submissionInfo)) {
+          if (referenceObject.length === 0) {
+            // create inner objects
+            if (i !== outputPathArray.length - 1) {
+              for (const item of submissionInfo) {
+                referenceObject.push(
+                  this.mapSubmissionInnerObjectRecursive(
+                    item,
+                    {},
+                    outputPathArray.slice(i),
+                  ),
+                );
+              }
+            } else {
+              referenceObject.push(
+                this.mapSubmissionInnerObjectRecursive(
+                  submissionInfo,
+                  {},
+                  outputPathArray.slice(i),
+                ),
+              );
+            }
+          } else {
+            // inner objects already created
+            for (let j = 0; j < submissionInfo.length; j = j + 1) {
+              this.mapSubmissionInnerObjectRecursive(
+                submissionInfo[j],
+                referenceObject[j],
+                outputPathArray.slice(i),
+              );
+            }
+          }
+        } else {
+          if (referenceObject.length === 0) {
+            // create inner object
+            referenceObject.push(
+              this.mapSubmissionInnerObjectRecursive(
+                submissionInfo,
+                {},
+                outputPathArray.slice(i),
+              ),
+            );
+          } else {
+            // inner object already created
+            for (const item of referenceObject) {
+              this.mapSubmissionInnerObjectRecursive(
+                submissionInfo,
+                item,
+                outputPathArray.slice(i),
+              );
+            }
+          }
+        }
+        break;
+      }
+
+      // Determine if next item is array or object
+      else if (this.isArrayOrObject(output) === 'object') {
+        if (i === outputPathArray.length - 1) {
+          referenceObject[output] = submissionInfo;
+        } else if (!referenceObject[output]) {
+          referenceObject[output] = {};
+        }
+      } else {
+        output = output.substring(0, output.length - 1); // remove array indicator from name
+        if (i === outputPathArray.length - 1) {
+          referenceObject[output] = submissionInfo;
+        } else if (!referenceObject[output]) {
+          referenceObject[output] = [];
+        }
+      }
+
+      // Go to next level for next iteration
+      referenceObject = referenceObject[output];
+    }
+
+    return outputObject;
+  }
+
+  isArrayOrObject(path: string) {
+    return path.endsWith('[') ? 'array' : 'object';
   }
 
   formatDynamicForUpstream(body: object) {
     const submissionData = body['submission']['submission']['data'];
     const fieldSchema = body['version']['schema']['components'];
     const formId = body['version']['formId'];
-    let schemaMap = {};
+    const schemaMap = {};
+    // Grab base paths, if applicable
+    const basePathMap = this.grabJsonBasePathRecursive(fieldSchema);
+    // Grab submission data -> output key name mapping
     this.grabDynamicFieldMappingsRecursive(fieldSchema, schemaMap);
-    schemaMap = this.mapRootKeys(schemaMap);
-    const upstreamBody = this.renameKeys(
-      submissionData,
-      this.renameWithMap,
-      '',
-      schemaMap,
-    );
+    if (basePathMap && Object.keys(basePathMap).length !== 0) {
+      // Add base paths into output path keys, if applicable
+      this.formatSchemaMapWithBasePaths(schemaMap, basePathMap);
+    }
+    let upstreamBody = {};
+    for (const [submissionPath, outputPath] of Object.entries(schemaMap)) {
+      // For each input -> output mapping, map all applicable parts of submission data
+      upstreamBody = this.mapSubmissionUsingSchemaRecursive(
+        submissionData,
+        upstreamBody,
+        submissionPath,
+        outputPath,
+      );
+    }
+    // Format the request as required for outbound worker and siebel
     return this.formatSiebelUpstream(upstreamBody, submissionData, formId);
   }
 

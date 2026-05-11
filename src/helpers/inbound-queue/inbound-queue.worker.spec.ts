@@ -38,6 +38,7 @@ describe('InboundQueueWorker', () => {
   let requestDBService: RequestDBService;
   let requestPreparerService: RequestPreparerService;
   let queue;
+  let configService: ConfigService;
 
   const mockQueue: any = {
     add: jest.fn(),
@@ -61,6 +62,74 @@ describe('InboundQueueWorker', () => {
             lastName: 'Last',
           },
         },
+      },
+    },
+  };
+
+  const dynamicWebhookBody = {
+    submission: {
+      submission: {
+        data: {
+          Arr: [
+            { inneritem: ['text1', 'text2'], otherinneritem: 'text' },
+            { inneritem: ['text3', 'text4'], otherinneritem: 'text5' },
+          ],
+          middleitem: 'middle',
+          userDataRetryApi: {
+            username: 'username here',
+            email: 'email here',
+            firstName: 'First',
+            lastName: 'Last',
+          },
+        },
+      },
+    },
+    version: {
+      formId: 'dynamic',
+      schema: {
+        components: [
+          { key: 'not in use' },
+          {
+            key: 'Base_Paths',
+            properties: {
+              BasePathNested: 'Message>A>B[>C>D[',
+            },
+          },
+          {
+            key: 'messagedata',
+            columns: [
+              {
+                key: 'container',
+                components: [
+                  {
+                    key: 'Arr.inneritem',
+                    properties: {
+                      jsonpath: '$BasePathNested>E',
+                    },
+                  },
+                  {
+                    key: 'Arr.otherinneritem',
+                    properties: {
+                      jsonpath: '$BasePathNested>F',
+                    },
+                  },
+                  {
+                    key: 'Arr.anotherinneritem',
+                    properties: {
+                      jsonpath: '$BasePathNested>G',
+                    },
+                  },
+                  {
+                    key: 'middleitem',
+                    properties: {
+                      jsonpath: 'Message>A>B[>H',
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       },
     },
   };
@@ -103,6 +172,11 @@ describe('InboundQueueWorker', () => {
                 ['authorizedUrls.siebel']: 'http://baseurlhere',
                 ['siebel.endpointUrls.inPersonVisits']: '/endpointhere',
                 ['siebel.workspace.inPersonVisits']: 'workspace here',
+                [`siebel.workspace.${FormType.Dynamic}`]: {},
+                [`siebel.endpointUrls.${FormType.Dynamic}`]: {
+                  dynamic: '/endpointhere',
+                },
+                [`siebel.method.${FormType.Dynamic}`]: { dynamic: 'PUT' },
               };
               return lookup[key];
             }),
@@ -129,6 +203,7 @@ describe('InboundQueueWorker', () => {
       RequestPreparerService,
     );
     queue = module.get(getQueueToken('inbound'));
+    configService = module.get<ConfigService>(ConfigService);
     jest.useFakeTimers();
   });
 
@@ -199,6 +274,56 @@ describe('InboundQueueWorker', () => {
         body: JSON.stringify(upstreamBody),
       };
       const result = inboundQueueWorker.formatMemoForUpstream(webhookBody);
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('formatDynamicForUpstream tests', () => {
+    it('should properly format dyanmic user input', () => {
+      const upstreamBody = {
+        Message: {
+          A: {
+            B: [
+              {
+                C: {
+                  D: [{ E: ['text1', 'text2'], F: 'text' }],
+                },
+                H: 'middle',
+              },
+              {
+                C: {
+                  D: [{ E: ['text3', 'text4'], F: 'text5' }],
+                },
+                H: 'middle',
+              },
+            ],
+          },
+        },
+      };
+      const expected = {
+        email: 'email here',
+        idir: 'username here',
+        firstName: 'First',
+        lastName: 'Last',
+        upstreamType: UpstreamType.Siebel,
+        outboundUrl:
+          configService.get<string>('authorizedUrls.siebel') +
+          inboundQueueWorker.chefsEndpoints['dynamic'],
+        httpMethod: HttpMethod.Put,
+        contentType: CONTENT_TYPE,
+        headers: {
+          Accept: CONTENT_TYPE,
+          'Content-Type': CONTENT_TYPE,
+          'Accept-Encoding': '*',
+          [trustedIdirHeaderName]: 'username here',
+        },
+        params: {
+          [uniformResponseParamName]: 'y',
+        },
+        body: JSON.stringify(upstreamBody),
+      };
+      const result =
+        inboundQueueWorker.formatDynamicForUpstream(dynamicWebhookBody);
       expect(result).toEqual(expected);
     });
   });
