@@ -205,7 +205,14 @@ export class InboundQueueWorker extends WorkerHost {
     }
   }
 
-  grabJsonBasePathRecursive(components: Array<object> | undefined | null) {
+  /**
+   * Recursively looks for the component with key "Base_Paths"
+   * @param components the root components object in the version schema
+   * @returns the properties of the "Base_Paths" component, or undefined if not found
+   */
+  grabJsonBasePathRecursive(
+    components: Array<object> | undefined | null,
+  ): object | undefined {
     for (const component of components) {
       if (component['key'] == 'Base_Paths' && component['properties']) {
         const basePathMap = structuredClone(component['properties']) as object;
@@ -225,12 +232,18 @@ export class InboundQueueWorker extends WorkerHost {
     }
   }
 
+  /**
+   * Replaces base path markers, denoted by $ at the start of a json path, with their respective
+   * base paths as defined by the the base path map.
+   * @param schemaMap the map created by the grabDynamicFieldMappingsRecursive function
+   * @param basePathMap the map created by the grabJsonBasePathRecursive function
+   */
   formatSchemaMapWithBasePaths(schemaMap: object, basePathMap: object) {
     for (const [key, value] of Object.entries(schemaMap)) {
       if (typeof value === 'object' && value !== null) {
         this.formatSchemaMapWithBasePaths(value, basePathMap);
       }
-      if (typeof value == 'string' && value.startsWith('$')) {
+      if (typeof value === 'string' && value.startsWith('$')) {
         const basePath = value.substring(1, value.indexOf('>'));
         schemaMap[key] = (schemaMap[key] as string).replace(
           '$' + basePath,
@@ -240,6 +253,12 @@ export class InboundQueueWorker extends WorkerHost {
     }
   }
 
+  /**
+   * Finds if any value(s) match the path in the given object. Works for paths with objects and arrays.
+   * @param obj the input object
+   * @param pathArray an array denoting the path, with [ at the end of each string denoting an array path
+   * @returns the value(s) found at the path specified, or undefined if not found
+   */
   checkObjectPathWithArray(obj, pathArray) {
     let datum = obj;
     for (let i = 0; i < pathArray.length; i = i + 1) {
@@ -276,6 +295,14 @@ export class InboundQueueWorker extends WorkerHost {
     return datum;
   }
 
+  /**
+   * Maps part of the output object based on ther input submission, and a single given submission and output path.
+   * @param submission the data as submitted
+   * @param outputObject the current output object for the mapping
+   * @param submissionPath the submission path as string, with parts separated by "."
+   * @param outputPath the output path as string, with parts separated by ">" and arrays denoted by "["
+   * @returns the outputObject, with the mapping adding for all applicable items if they exist in the submission
+   */
   mapSubmissionUsingSchemaRecursive(
     submission: object,
     outputObject: object,
@@ -304,6 +331,13 @@ export class InboundQueueWorker extends WorkerHost {
     return outputObject;
   }
 
+  /**
+   * Maps part of the output object based on ther input submission, and a single given submission and output path.
+   * @param submissionInfo the data as submitted
+   * @param outputObject the current output object for the mapping
+   * @param outputPathArray the output path as an array
+   * @returns the output object
+   */
   mapSubmissionInnerObjectRecursive(
     submissionInfo,
     outputObject,
@@ -319,10 +353,20 @@ export class InboundQueueWorker extends WorkerHost {
         if (Array.isArray(submissionInfo)) {
           if (referenceObject.length === 0) {
             // create inner objects
-            for (const item of submissionInfo) {
+            if (i !== outputPathArray.length - 1) {
+              for (const item of submissionInfo) {
+                referenceObject.push(
+                  this.mapSubmissionInnerObjectRecursive(
+                    item,
+                    {},
+                    outputPathArray.slice(i),
+                  ),
+                );
+              }
+            } else {
               referenceObject.push(
                 this.mapSubmissionInnerObjectRecursive(
-                  item,
+                  submissionInfo,
                   {},
                   outputPathArray.slice(i),
                 ),
@@ -350,11 +394,13 @@ export class InboundQueueWorker extends WorkerHost {
             );
           } else {
             // inner object already created
-            this.mapSubmissionInnerObjectRecursive(
-              submissionInfo,
-              referenceObject[0],
-              outputPathArray.slice(i),
-            );
+            for (const item of referenceObject) {
+              this.mapSubmissionInnerObjectRecursive(
+                submissionInfo,
+                item,
+                outputPathArray.slice(i),
+              );
+            }
           }
         }
         break;
