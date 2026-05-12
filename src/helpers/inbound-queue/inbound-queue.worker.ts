@@ -456,6 +456,7 @@ export class InboundQueueWorker extends WorkerHost {
         outputPath,
       );
     }
+    console.log(upstreamBody);
     // Format the request as required for outbound worker and siebel
     return this.formatSiebelUpstream(upstreamBody, submissionData, formId);
   }
