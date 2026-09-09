@@ -37,7 +37,9 @@ describe('MailerService', () => {
     it('should log error when email is not sent', async () => {
       const sendSpy = jest
         .spyOn(transporter, 'sendMail')
-        .mockRejectedValueOnce(new Error(`Couldn't send mail`));
+        .mockImplementationOnce(async () => {
+          throw new Error(`Couldn't send mail`);
+        });
       await service.sendEmail('toEmail', 'emailSubject', 'emailText');
       expect(sendSpy).toHaveBeenCalledTimes(1);
     });
