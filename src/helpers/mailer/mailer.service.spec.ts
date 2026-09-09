@@ -33,15 +33,17 @@ describe('MailerService', () => {
     expect(service).toBeDefined();
   });
 
-  //   describe('sendEmail tests', () => {
-  //     it('should log error when email is not sent', async () => {
-  //       const sendSpy = jest
-  //         .spyOn(transporter, 'sendMail')
-  //         .mockRejectedValueOnce(new Error(`Couldn't send mail`));
-  //       await service.sendEmail('toEmail', 'emailSubject', 'emailText');
-  //       expect(sendSpy).toHaveBeenCalledTimes(1);
-  //     });
-  //   });
+  describe('sendEmail tests', () => {
+    it('should log error when email is not sent', async () => {
+      const sendSpy = jest
+        .spyOn(transporter, 'sendMail')
+        .mockImplementationOnce(async () => {
+          throw new Error(`Couldn't send mail`);
+        });
+      await service.sendEmail('toEmail', 'emailSubject', 'emailText');
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+    });
+  });
 
   describe('sendWebhookSubmissionSuccess tests', () => {
     it('should send a success message', async () => {
