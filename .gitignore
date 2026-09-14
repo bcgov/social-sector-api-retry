@@ -46,6 +46,9 @@ lerna-debug.log*
 .temp
 .tmp
 
+# TypeScript cache
+*.tsbuildinfo
+
 # Runtime data
 pids
 *.pid
