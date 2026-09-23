@@ -24,6 +24,7 @@ import {
   trustedIdirHeaderName,
   uniformResponseParamName,
 } from '../../common/constants/parameter-constants';
+import util from 'node:util';
 
 @Processor('inbound')
 export class InboundQueueWorker extends WorkerHost {
@@ -456,7 +457,7 @@ export class InboundQueueWorker extends WorkerHost {
         outputPath,
       );
     }
-    console.log(upstreamBody);
+    console.log(util.inspect(upstreamBody, true, 10));
     // Format the request as required for outbound worker and siebel
     return this.formatSiebelUpstream(upstreamBody, submissionData, formId);
   }
