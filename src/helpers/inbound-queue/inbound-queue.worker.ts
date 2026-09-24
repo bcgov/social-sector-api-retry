@@ -176,19 +176,41 @@ export class InboundQueueWorker extends WorkerHost {
   }
 
   /**
+   * Component "type" values that represent a genuine repeating/array structure in the submission
+   * data (e.g. form.io's Edit Grid). Fields nested inside one of these cannot have a "." in their
+   * own key (CHEFS reserves dots in a key for building nested submission paths), so the array
+   * component's own key is automatically prepended to its descendants' keys instead - see
+   * grabDynamicFieldMappingsRecursive.
+   */
+  static readonly arrayComponentTypes = ['editgrid', 'datagrid'];
+
+  /**
    * Recursively grab mappings from the property "jsonpath", where the key is the how it appears in submission data
    * (seperated by '.') and the value is how it should appear in the output (seperated by '>')
    * @param components the root components object in the version schema
    * @param schemaMap reference to an empty object, which will become your mapping
+   * @param pathPrefix the submission path prefix (ending in '.') inherited from an ancestor array
+   * component (e.g. an Edit Grid), or an empty string if not currently inside one. This is
+   * prepended to each component's own key, since fields nested inside an array component cannot
+   * include a "." in their own key
    */
   grabDynamicFieldMappingsRecursive(
     components: Array<object> | undefined | null,
     schemaMap: object,
+    pathPrefix = '',
   ) {
     for (const component of components) {
+      const fullKey = `${pathPrefix}${component['key']}`;
       if (component['properties'] && component['properties']['jsonpath']) {
-        schemaMap[`${component['key']}`] = component['properties']['jsonpath'];
+        schemaMap[fullKey] = component['properties']['jsonpath'];
       }
+      // If this component is itself a repeating/array component, its own (fully-qualified) key
+      // becomes the path prefix for all of its descendants
+      const childPrefix = InboundQueueWorker.arrayComponentTypes.includes(
+        component['type'],
+      )
+        ? `${fullKey}.`
+        : pathPrefix;
       if (
         typeof component['components'] === 'object' &&
         component['components'] != null
@@ -196,12 +218,17 @@ export class InboundQueueWorker extends WorkerHost {
         this.grabDynamicFieldMappingsRecursive(
           component['components'],
           schemaMap,
+          childPrefix,
         );
       } else if (
         typeof component['columns'] === 'object' &&
         component['columns'] != null
       ) {
-        this.grabDynamicFieldMappingsRecursive(component['columns'], schemaMap);
+        this.grabDynamicFieldMappingsRecursive(
+          component['columns'],
+          schemaMap,
+          childPrefix,
+        );
       }
     }
   }
@@ -255,45 +282,75 @@ export class InboundQueueWorker extends WorkerHost {
   }
 
   /**
+   * Recursively resolves the remaining pathArray (starting at index) against datum, correlating
+   * through any genuine repeating-group (array) boundaries encountered along the way, including
+   * nested ones (a repeating group within a repeating group).
+   * @param datum the value currently being navigated - an object, array, or scalar
+   * @param pathArray the full path being resolved
+   * @param index the next segment of pathArray to consume
+   * @returns the resolved value (or undefined if not found), and arrayDepth: how many genuine
+   * repeating-group (array) boundaries were crossed while resolving the remaining path. Plain
+   * object property access after entering an array does not add to arrayDepth (e.g. a nested
+   * object within a grid row); only a further array actually being iterated over does. A value
+   * that happens to itself be an array, but with no remaining path segments left to resolve, is a
+   * terminal/leaf value (e.g. a multi-select field) and does not count towards arrayDepth either
+   */
+  resolveObjectPath(
+    datum: unknown,
+    pathArray: Array<string>,
+    index: number,
+  ): { value: unknown; arrayDepth: number } {
+    if (index >= pathArray.length) {
+      return { value: datum, arrayDepth: 0 };
+    }
+    if (datum === undefined || datum === null) {
+      return { value: undefined, arrayDepth: 0 };
+    }
+    if (Array.isArray(datum)) {
+      // genuine repeating group: correlate the remaining path across every row
+      let hasValue = false;
+      let childDepth = 0;
+      const values = datum.map((row) => {
+        const resolved =
+          row === undefined || row === null
+            ? { value: undefined, arrayDepth: 0 }
+            : this.resolveObjectPath(
+                row[pathArray[index]],
+                pathArray,
+                index + 1,
+              );
+        if (resolved.value !== undefined) {
+          hasValue = true;
+          childDepth = Math.max(childDepth, resolved.arrayDepth);
+        }
+        return resolved.value;
+      });
+      return {
+        value: hasValue ? values : undefined,
+        arrayDepth: 1 + childDepth,
+      };
+    }
+    // plain object property access does not add array depth
+    return this.resolveObjectPath(
+      datum[pathArray[index]],
+      pathArray,
+      index + 1,
+    );
+  }
+
+  /**
    * Finds if any value(s) match the path in the given object. Works for paths with objects and arrays.
    * @param obj the input object
    * @param pathArray an array denoting the path, with [ at the end of each string denoting an array path
-   * @returns the value(s) found at the path specified, or undefined if not found
+   * @returns an object containing the value(s) found at the path specified (or undefined if not
+   * found), and arrayDepth: the number of genuine repeating-group levels represented in the value
+   * - see resolveObjectPath
    */
-  checkObjectPathWithArray(obj, pathArray) {
-    let datum = obj;
-    for (let i = 0; i < pathArray.length; i = i + 1) {
-      if (typeof datum === 'undefined') {
-        return undefined;
-      }
-      if (Array.isArray(datum)) {
-        // prev path is array
-        const reducedDatum = [];
-        let hasNonUndefinedValue = false;
-        for (const innerValue of datum) {
-          if (typeof innerValue[pathArray[i]] !== 'undefined') {
-            hasNonUndefinedValue = true;
-            reducedDatum.push(innerValue[pathArray[i]]);
-          } else {
-            reducedDatum.push(undefined);
-          }
-        }
-        if (!hasNonUndefinedValue) {
-          return undefined;
-        }
-        datum = reducedDatum;
-      } else {
-        datum =
-          datum[pathArray[i]] !== undefined ? datum[pathArray[i]] : undefined;
-      }
-    }
-    if (
-      Array.isArray(datum) &&
-      datum.filter((value) => typeof value !== 'undefined').length === 0
-    ) {
-      return undefined;
-    }
-    return datum;
+  checkObjectPathWithArray(
+    obj,
+    pathArray,
+  ): { value: unknown; arrayDepth: number } {
+    return this.resolveObjectPath(obj, pathArray, 0);
   }
 
   /**
@@ -314,7 +371,7 @@ export class InboundQueueWorker extends WorkerHost {
     const submissionPathArray = this.convertFormKeytoPath(submissionPath);
 
     // Check if submission path exists
-    const submissionInfo = this.checkObjectPathWithArray(
+    const { value: submissionInfo, arrayDepth } = this.checkObjectPathWithArray(
       submission,
       submissionPathArray,
     );
@@ -327,6 +384,7 @@ export class InboundQueueWorker extends WorkerHost {
         submissionInfo,
         outputObject,
         outputPathArray,
+        arrayDepth,
       );
     }
     return outputObject;
@@ -337,12 +395,18 @@ export class InboundQueueWorker extends WorkerHost {
    * @param submissionInfo the data as submitted
    * @param outputObject the current output object for the mapping
    * @param outputPathArray the output path as an array
+   * @param arrayDepth the number of remaining genuine repeating-group levels represented in
+   * submissionInfo (as computed from the schema tree by grabDynamicFieldMappingsRecursive). While
+   * this is greater than 0, an array-typed submissionInfo is spread across one output array
+   * element per row; once it reaches 0, an array-typed submissionInfo is instead embedded as-is
+   * (e.g. a multi-select field's value)
    * @returns the output object
    */
   mapSubmissionInnerObjectRecursive(
     submissionInfo,
     outputObject,
     outputPathArray,
+    arrayDepth = 0,
   ) {
     // Create internal structure, if it doesn't exist
     let referenceObject = outputObject;
@@ -354,34 +418,66 @@ export class InboundQueueWorker extends WorkerHost {
         if (Array.isArray(submissionInfo)) {
           if (referenceObject.length === 0) {
             // create inner objects
-            if (i !== outputPathArray.length - 1) {
+            if (arrayDepth > 0) {
+              // genuine repeating group: one output element per submission row
               for (const item of submissionInfo) {
                 referenceObject.push(
                   this.mapSubmissionInnerObjectRecursive(
                     item,
                     {},
                     outputPathArray.slice(i),
+                    arrayDepth - 1,
                   ),
                 );
               }
             } else {
+              // value is simply array-typed (e.g. a multi-select): embed it as-is
               referenceObject.push(
                 this.mapSubmissionInnerObjectRecursive(
                   submissionInfo,
                   {},
                   outputPathArray.slice(i),
+                  arrayDepth,
                 ),
               );
             }
-          } else {
-            // inner objects already created
-            for (let j = 0; j < submissionInfo.length; j = j + 1) {
+          } else if (
+            referenceObject.length === 1 &&
+            submissionInfo.length !== 1
+          ) {
+            // this array position was already established as a single shared wrapper by a
+            // different, unrelated field (e.g. one with no genuine repeating group of its own);
+            // merge into that single element instead of trying to correlate by row index, and
+            // keep the arrayDepth budget for a later bracket that represents this field's own
+            // repeating group
+            this.mapSubmissionInnerObjectRecursive(
+              submissionInfo,
+              referenceObject[0],
+              outputPathArray.slice(i),
+              arrayDepth,
+            );
+          } else if (arrayDepth > 0) {
+            // inner objects already created, correlate by row index
+            const rowCount = Math.min(
+              referenceObject.length,
+              submissionInfo.length,
+            );
+            for (let j = 0; j < rowCount; j = j + 1) {
               this.mapSubmissionInnerObjectRecursive(
                 submissionInfo[j],
                 referenceObject[j],
                 outputPathArray.slice(i),
+                arrayDepth - 1,
               );
             }
+          } else {
+            // another array-typed value sharing the same already-created single element
+            this.mapSubmissionInnerObjectRecursive(
+              submissionInfo,
+              referenceObject[0],
+              outputPathArray.slice(i),
+              arrayDepth,
+            );
           }
         } else {
           if (referenceObject.length === 0) {
@@ -391,6 +487,7 @@ export class InboundQueueWorker extends WorkerHost {
                 submissionInfo,
                 {},
                 outputPathArray.slice(i),
+                arrayDepth,
               ),
             );
           } else {
@@ -400,6 +497,7 @@ export class InboundQueueWorker extends WorkerHost {
                 submissionInfo,
                 item,
                 outputPathArray.slice(i),
+                arrayDepth,
               );
             }
           }

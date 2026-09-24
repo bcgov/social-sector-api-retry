@@ -326,6 +326,414 @@ describe('InboundQueueWorker', () => {
         inboundQueueWorker.formatDynamicForUpstream(dynamicWebhookBody);
       expect(result).toEqual(expected);
     });
+
+    it('should correctly map fields nested in an Edit Grid whose own keys have no "."', () => {
+      const editGridWebhookBody = {
+        submission: {
+          submission: {
+            data: {
+              Arr: [
+                { field1: 'row1Value1', field2: 'row1Value2' },
+                { field1: 'row2Value1', field2: 'row2Value2' },
+              ],
+              userDataRetryApi: {
+                username: 'username here',
+                email: 'email here',
+                firstName: 'First',
+                lastName: 'Last',
+              },
+            },
+          },
+        },
+        version: {
+          formId: 'dynamic',
+          schema: {
+            components: [
+              {
+                key: 'Arr',
+                type: 'editgrid',
+                components: [
+                  {
+                    key: 'field1',
+                    properties: { jsonpath: 'Message>A>B[>FieldOne' },
+                  },
+                  {
+                    key: 'field2',
+                    properties: { jsonpath: 'Message>A>B[>FieldTwo' },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      };
+      const upstreamBody = {
+        Message: {
+          A: {
+            B: [
+              { FieldOne: 'row1Value1', FieldTwo: 'row1Value2' },
+              { FieldOne: 'row2Value1', FieldTwo: 'row2Value2' },
+            ],
+          },
+        },
+      };
+      const expected = {
+        email: 'email here',
+        idir: 'username here',
+        firstName: 'First',
+        lastName: 'Last',
+        upstreamType: UpstreamType.Siebel,
+        outboundUrl:
+          configService.get<string>('authorizedUrls.siebel') +
+          inboundQueueWorker.chefsEndpoints['dynamic'],
+        httpMethod: HttpMethod.Put,
+        contentType: CONTENT_TYPE,
+        headers: {
+          Accept: CONTENT_TYPE,
+          'Content-Type': CONTENT_TYPE,
+          'Accept-Encoding': '*',
+          [trustedIdirHeaderName]: 'username here',
+        },
+        params: {
+          [uniformResponseParamName]: 'y',
+        },
+        body: JSON.stringify(upstreamBody),
+      };
+      const result =
+        inboundQueueWorker.formatDynamicForUpstream(editGridWebhookBody);
+      expect(result).toEqual(expected);
+    });
+
+    it('should merge a nested Edit Grid repeating group into a bracket shared with unrelated scalar fields (base path reuse)', () => {
+      const reportableCircumstancesWebhookBody = {
+        submission: {
+          submission: {
+            data: {
+              Reportable_Type: 'seriousIncident',
+              practitionersGrid: [
+                { RCPractitioner: { Id: 1, Practitoner: 'John' } },
+                { RCPractitioner: { Id: 2, Practitoner: 'Jane' } },
+              ],
+              userDataRetryApi: {
+                username: 'username here',
+                email: 'email here',
+                firstName: 'First',
+                lastName: 'Last',
+              },
+            },
+          },
+        },
+        version: {
+          formId: 'dynamic',
+          schema: {
+            components: [
+              {
+                key: 'Base_Paths',
+                properties: {
+                  BasePathReportableCircumstances:
+                    'RCMessage>ListOfICM REST Workflow RC IO>ReportableCircumstances[',
+                  BasePathRCPractitioners:
+                    'RCMessage>ListOfICM REST Workflow RC IO>ReportableCircumstances[>ListOfRCPractitioners>RCPractitioner[',
+                },
+              },
+              {
+                key: 'Reportable_Type',
+                properties: {
+                  jsonpath: '$BasePathReportableCircumstances>Reportable Type',
+                },
+              },
+              {
+                key: 'practitionersGrid',
+                type: 'editgrid',
+                components: [
+                  {
+                    key: 'RCPractitioner.Id',
+                    properties: { jsonpath: '$BasePathRCPractitioners>Id' },
+                  },
+                  {
+                    key: 'RCPractitioner.Practitoner',
+                    properties: {
+                      jsonpath: '$BasePathRCPractitioners>Practitoner',
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      };
+      const upstreamBody = {
+        RCMessage: {
+          'ListOfICM REST Workflow RC IO': {
+            ReportableCircumstances: [
+              {
+                'Reportable Type': 'seriousIncident',
+                ListOfRCPractitioners: {
+                  RCPractitioner: [
+                    { Id: 1, Practitoner: 'John' },
+                    { Id: 2, Practitoner: 'Jane' },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      };
+      const expected = {
+        email: 'email here',
+        idir: 'username here',
+        firstName: 'First',
+        lastName: 'Last',
+        upstreamType: UpstreamType.Siebel,
+        outboundUrl:
+          configService.get<string>('authorizedUrls.siebel') +
+          inboundQueueWorker.chefsEndpoints['dynamic'],
+        httpMethod: HttpMethod.Put,
+        contentType: CONTENT_TYPE,
+        headers: {
+          Accept: CONTENT_TYPE,
+          'Content-Type': CONTENT_TYPE,
+          'Accept-Encoding': '*',
+          [trustedIdirHeaderName]: 'username here',
+        },
+        params: {
+          [uniformResponseParamName]: 'y',
+        },
+        body: JSON.stringify(upstreamBody),
+      };
+      const result = inboundQueueWorker.formatDynamicForUpstream(
+        reportableCircumstancesWebhookBody,
+      );
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('checkObjectPathWithArray tests', () => {
+    it('should return a simple array of values for a single-level array of objects', () => {
+      const data = {
+        Arr: [{ field: 'a' }, { field: 'b' }],
+      };
+      const result = inboundQueueWorker.checkObjectPathWithArray(data, [
+        'Arr',
+        'field',
+      ]);
+      expect(result).toEqual({ value: ['a', 'b'], arrayDepth: 1 });
+    });
+
+    it('should properly construct nested arrays of objects (a repeating group within a repeating group)', () => {
+      const data = {
+        Arr: [
+          {
+            subArr: [
+              { x: 1, y: 2 },
+              { x: 3, y: 4 },
+            ],
+          },
+          { subArr: [{ x: 5, y: 6 }] },
+        ],
+      };
+      const result = inboundQueueWorker.checkObjectPathWithArray(data, [
+        'Arr',
+        'subArr',
+        'x',
+      ]);
+      expect(result).toEqual({ value: [[1, 3], [5]], arrayDepth: 2 });
+    });
+
+    it('should return undefined if no entry at any depth has the requested key', () => {
+      const data = {
+        Arr: [{ subArr: [{ y: 2 }] }],
+      };
+      const result = inboundQueueWorker.checkObjectPathWithArray(data, [
+        'Arr',
+        'subArr',
+        'x',
+      ]);
+      expect(result.value).toBeUndefined();
+    });
+
+    it('should not count an extra array-depth level for a plain object property reached after entering an array', () => {
+      const data = {
+        Arr: [{ nested: { x: 1 } }, { nested: { x: 2 } }],
+      };
+      const result = inboundQueueWorker.checkObjectPathWithArray(data, [
+        'Arr',
+        'nested',
+        'x',
+      ]);
+      expect(result).toEqual({ value: [1, 2], arrayDepth: 1 });
+    });
+
+    it('should not count array-depth for a terminal multi-value (e.g. multi-select) field', () => {
+      const data = {
+        multiSelect: ['optionA', 'optionB'],
+      };
+      const result = inboundQueueWorker.checkObjectPathWithArray(data, [
+        'multiSelect',
+      ]);
+      expect(result).toEqual({ value: ['optionA', 'optionB'], arrayDepth: 0 });
+    });
+  });
+
+  describe('mapSubmissionUsingSchemaRecursive tests', () => {
+    it('should correlate multiple fields row-by-row when an array bracket is immediately followed by the leaf', () => {
+      const submission = {
+        Arr: [
+          { fieldA: 'a1', fieldB: 'b1' },
+          { fieldA: 'a2', fieldB: 'b2' },
+          { fieldA: 'a3', fieldB: 'b3' },
+        ],
+      };
+      let outputObject = {};
+      outputObject = inboundQueueWorker.mapSubmissionUsingSchemaRecursive(
+        submission,
+        outputObject,
+        'Arr.fieldA',
+        'Row[>FieldA',
+      );
+      outputObject = inboundQueueWorker.mapSubmissionUsingSchemaRecursive(
+        submission,
+        outputObject,
+        'Arr.fieldB',
+        'Row[>FieldB',
+      );
+      expect(outputObject).toEqual({
+        Row: [
+          { FieldA: 'a1', FieldB: 'b1' },
+          { FieldA: 'a2', FieldB: 'b2' },
+          { FieldA: 'a3', FieldB: 'b3' },
+        ],
+      });
+    });
+
+    it('should still embed a multi-value field as-is when there is no genuine repeating group', () => {
+      const submission = {
+        multiSelect: ['optionA', 'optionB'],
+      };
+      const outputObject = inboundQueueWorker.mapSubmissionUsingSchemaRecursive(
+        submission,
+        {},
+        'multiSelect',
+        'Wrapper[>Values',
+      );
+      expect(outputObject).toEqual({
+        Wrapper: [{ Values: ['optionA', 'optionB'] }],
+      });
+    });
+
+    it('should merge a genuine repeating group into a bracket already established as a single wrapper by an unrelated field', () => {
+      const submission = {
+        // reportableType is a plain (non-repeating) field
+        reportableType: 'seriousIncident',
+        // practitionersGrid is a genuine repeating group, unrelated in cardinality
+        practitionersGrid: [{ name: 'a' }, { name: 'b' }, { name: 'c' }],
+      };
+      let outputObject = {};
+      outputObject = inboundQueueWorker.mapSubmissionUsingSchemaRecursive(
+        submission,
+        outputObject,
+        'reportableType',
+        'ReportableCircumstances[>Reportable Type',
+      );
+      outputObject = inboundQueueWorker.mapSubmissionUsingSchemaRecursive(
+        submission,
+        outputObject,
+        'practitionersGrid.name',
+        'ReportableCircumstances[>ListOfPractitioners>Practitioner[>Name',
+      );
+      expect(outputObject).toEqual({
+        ReportableCircumstances: [
+          {
+            'Reportable Type': 'seriousIncident',
+            ListOfPractitioners: {
+              Practitioner: [{ Name: 'a' }, { Name: 'b' }, { Name: 'c' }],
+            },
+          },
+        ],
+      });
+    });
+  });
+
+  describe('grabDynamicFieldMappingsRecursive tests', () => {
+    it('should prepend an Edit Grid component key to its nested fields, without needing a "." in their own key', () => {
+      const components = [
+        {
+          key: 'Arr',
+          type: 'editgrid',
+          components: [
+            {
+              key: 'field1',
+              properties: { jsonpath: 'Message>A>B[>FieldOne' },
+            },
+            {
+              key: 'field2',
+              properties: { jsonpath: 'Message>A>B[>FieldTwo' },
+            },
+          ],
+        },
+      ];
+      const schemaMap = {};
+      inboundQueueWorker.grabDynamicFieldMappingsRecursive(
+        components,
+        schemaMap,
+      );
+      expect(schemaMap).toEqual({
+        'Arr.field1': 'Message>A>B[>FieldOne',
+        'Arr.field2': 'Message>A>B[>FieldTwo',
+      });
+    });
+
+    it('should accumulate prefixes for an Edit Grid nested inside another Edit Grid', () => {
+      const components = [
+        {
+          key: 'Arr',
+          type: 'editgrid',
+          components: [
+            {
+              key: 'SubArr',
+              type: 'editgrid',
+              components: [
+                {
+                  key: 'field1',
+                  properties: { jsonpath: 'Message>A>B[>C[>Field' },
+                },
+              ],
+            },
+          ],
+        },
+      ];
+      const schemaMap = {};
+      inboundQueueWorker.grabDynamicFieldMappingsRecursive(
+        components,
+        schemaMap,
+      );
+      expect(schemaMap).toEqual({
+        'Arr.SubArr.field1': 'Message>A>B[>C[>Field',
+      });
+    });
+
+    it('should leave fields outside of an Edit Grid unaffected, using their own key as the full path', () => {
+      const components = [
+        {
+          key: 'somePanel',
+          type: 'panel',
+          components: [
+            {
+              key: 'Group.Field',
+              properties: { jsonpath: 'Message>Group>Field' },
+            },
+          ],
+        },
+      ];
+      const schemaMap = {};
+      inboundQueueWorker.grabDynamicFieldMappingsRecursive(
+        components,
+        schemaMap,
+      );
+      expect(schemaMap).toEqual({
+        'Group.Field': 'Message>Group>Field',
+      });
+    });
   });
 
   describe('formatInputForUpstream tests', () => {
