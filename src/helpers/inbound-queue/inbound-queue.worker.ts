@@ -3,7 +3,7 @@ import { BadRequestException, Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
 import { RequestPreparerService } from '../../external-api/request-preparer/request-preparer.service';
 import { RequestDBService } from '../../db/request.service';
-import { AxiosError, HttpStatusCode } from 'axios';
+import { isAxiosError, HttpStatusCode } from 'axios';
 import { UtilitiesService } from '../utilities/utilities.service';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -590,9 +590,11 @@ export class InboundQueueWorker extends WorkerHost {
       [response, formName] =
         await this.requestPreparerService.getFormSubmissionPayload(data);
     } catch (error) {
-      if (error instanceof AxiosError) {
+      if (isAxiosError(error)) {
+        // error.status is not always set; fall back to error.response.status
+        const axiosStatus = error.status ?? error.response?.status;
         // Temporarily pause queue if rate limited
-        if (error.status === HttpStatusCode.TooManyRequests) {
+        if (axiosStatus === HttpStatusCode.TooManyRequests) {
           const retryAfter = error.response.headers[`retry-after`]
             ? Number.parseInt(error.response.headers[`retry-after`])
             : chefsRetryWaitSeconds;

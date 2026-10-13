@@ -8,7 +8,7 @@ import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
 import { RequestPreparerService } from '../../external-api/request-preparer/request-preparer.service';
 import { RequestDBService } from '../../db/request.service';
-import { AxiosError } from 'axios';
+import { isAxiosError } from 'axios';
 import { UtilitiesService } from '../utilities/utilities.service';
 import { ConfigService } from '@nestjs/config';
 import { UpstreamType } from '../../common/constants/enumerations';
@@ -86,21 +86,23 @@ export class OutboundQueueWorker extends WorkerHost {
           requestData,
         );
     } catch (error) {
-      if (error instanceof AxiosError) {
-        if (!error.status) {
+      if (isAxiosError(error)) {
+        // error.status is not always set; fall back to error.response.status
+        const axiosStatus = error.status ?? error.response?.status;
+        if (!axiosStatus) {
           this.logger.error(
             `Upstream request failed to connect with message: ${error.message}`,
           );
           // network / connection error
           throw error; // moves to failed state for retry
-        } else if (error.status === 503) {
+        } else if (axiosStatus === 503) {
           this.logger.error(
             `Upstream request status 503, failed with message: ${error.message}`,
           );
           //service unavailable
           throw error; // moves to failed state for retry
         }
-        statusCode = error.status;
+        statusCode = axiosStatus;
         errorMessage = error.message;
         this.logger.error({
           msg: error.message,
@@ -116,7 +118,10 @@ export class OutboundQueueWorker extends WorkerHost {
     if (!statusCode) {
       statusCode = response.status;
     }
-
+    // TODO: Remove before any prod release
+    console.log(`Status: ${response?.status}`);
+    console.log('Response data:');
+    console.log(response?.data);
     // Else, email result and succeed job (regardless of email success)
     if (statusCode >= 300) {
       await this.mailerService.sendFail(

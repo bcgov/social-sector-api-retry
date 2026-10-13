@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AxiosError } from 'axios';
+import { isAxiosError } from 'axios';
 import { Cache } from 'cache-manager';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -83,7 +83,7 @@ export class TokenRefresherService {
       const expiryMs = expirySeconds * secondsToMsConversionFactor;
       return [bearer_token, expiryMs];
     } catch (error) {
-      if (error instanceof AxiosError) {
+      if (isAxiosError(error)) {
         this.logger.error({
           msg: error.message,
           errorDetails: error.response?.data,
