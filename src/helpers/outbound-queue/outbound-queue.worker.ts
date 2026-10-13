@@ -118,7 +118,7 @@ export class OutboundQueueWorker extends WorkerHost {
     if (!statusCode) {
       statusCode = response.status;
     }
-	// TODO: Remove before any prod release
+    // TODO: Remove before any prod release
     console.log(`Status: ${response?.status}`);
     console.log('Response data:');
     console.log(response?.data);
