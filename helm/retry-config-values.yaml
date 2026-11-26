@@ -179,6 +179,11 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: MAIL_SENDER_ADDRESS
+  - name: MAIL_ADMIN_ADDRESS
+    valueFrom:
+      configMapKeyRef:
+          name: social-retry-config
+          key: MAIL_ADMIN_ADDRESS
   - name: NATS_MAX_MESSAGES
     valueFrom:
       configMapKeyRef:

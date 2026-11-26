@@ -1,6 +1,11 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import {
+  InjectQueue,
+  OnWorkerEvent,
+  Processor,
+  WorkerHost,
+} from '@nestjs/bullmq';
 import { BadRequestException, Logger } from '@nestjs/common';
-import { Job, Queue } from 'bullmq';
+import { Job, Queue, UnrecoverableError } from 'bullmq';
 import { RequestPreparerService } from '../../external-api/request-preparer/request-preparer.service';
 import { RequestDBService } from '../../db/request.service';
 import { isAxiosError, HttpStatusCode } from 'axios';
@@ -533,19 +538,11 @@ export class InboundQueueWorker extends WorkerHost {
   }
 
   async processFormSubmission(job: Job<any, any, string>) {
-    // Check if data has already been added to DB. If not, add it
-    let requestData = await this.requestDBService.findOneByFormSubmissionId(
-      job.id,
-    );
-    if (requestData == null) {
-      requestData = await this.requestDBService.createWebhookEntry(
-        job.id,
-        job.data,
-      );
-    }
-    const data = JSON.parse(requestData.webhookBody);
+    const data = job.data;
 
-    // Get CHEFS form data from upstream
+    // Get CHEFS form data from upstream before persisting anything, so that submissions that
+    // are rejected (unsupported form, or not yet approved for ingestion) never get an entry in
+    // the DB
     let response;
     try {
       response =
@@ -569,12 +566,11 @@ export class InboundQueueWorker extends WorkerHost {
         }
         throw error; // return to queue
       } else {
-        // Complete job and delete DB entry if form is not currently accepted
+        // Complete job if form is not currently accepted; nothing was persisted
         this.logger.error(error, undefined, {
-          formSubmissionId: requestData.webhookFormSubmissionId,
-          formId: data['meta']['formId'],
+          formSubmissionId: job.id,
+          formId: data['meta']?.['formId'],
         });
-        await this.requestDBService.remove(requestData.id);
         return;
       }
     }
@@ -582,12 +578,22 @@ export class InboundQueueWorker extends WorkerHost {
     const formId = data['meta']?.['formId'];
     const submissionData = response.data['submission']['submission']['data'];
     if (!this.checkApprovedForIngestion(formId, submissionData)) {
-      // Complete job and delete DB entry if form submission is not yet approved for ingestion
+      // Complete job if form submission is not yet approved for ingestion; nothing was persisted
       this.logger.log(
-        `Form submission with id '${requestData.id}' is not approved for ingestion, skipping...`,
+        `Form submission with id '${job.id}' is not approved for ingestion, skipping...`,
       );
-      await this.requestDBService.remove(requestData.id);
       return;
+    }
+
+    // Check if data has already been added to DB. If not, add it
+    let requestData = await this.requestDBService.findOneByFormSubmissionId(
+      job.id,
+    );
+    if (requestData == null) {
+      requestData = await this.requestDBService.createWebhookEntry(
+        job.id,
+        data,
+      );
     }
 
     // Add to outbound queue
@@ -618,5 +624,50 @@ export class InboundQueueWorker extends WorkerHost {
       response.data['submission']['confirmationId'],
     );
     this.logger.log(`Grabbed form data for request with id '${result.id}'`);
+  }
+
+  /**
+   * Alerts when an inbound job fails, so a permanently failed job (one that has exhausted its
+   * retries, or stalled - e.g. due to a server crash mid-processing - more times than BullMQ's
+   * maxStalledCount) doesn't fail silently. This is the only signal available for such jobs,
+   * since BullMQ will not retry them further on its own. A job that stalled too many times is
+   * reported to the worker as an UnrecoverableError, which skips retries even if attemptsMade is
+   * below the configured limit, so that case is also treated as permanent here.
+   * @param job the job that failed
+   * @param error the error that caused the latest attempt to fail
+   */
+  @OnWorkerEvent('failed')
+  async onFailed(job: Job<any, any, string>, error: Error) {
+    const attemptsMade = job.attemptsMade;
+    const maxAttempts = job.opts?.attempts ?? 1;
+    const isPermanentFailure =
+      attemptsMade >= maxAttempts || error instanceof UnrecoverableError;
+    const context = {
+      formSubmissionId: job.id,
+      formId: job.data?.['meta']?.['formId'],
+      attemptsMade,
+      maxAttempts,
+    };
+    if (isPermanentFailure) {
+      this.logger.error(
+        `Inbound job with id '${job.id}' permanently failed after ${attemptsMade} attempt(s) and will not be retried automatically. If a DB entry was already created for this submission, it may require manual investigation/cleanup. Failure reason: ${error?.message}`,
+        error?.stack,
+        context,
+      );
+      // Best-effort notification only: sendAdminAlert never throws, so this is attempted once
+      // and is not retried if it fails.
+      await this.mailerService.sendAdminAlert(
+        `Retry Mechanism Alert: Inbound job permanently failed`,
+        `Inbound job with id '${job.id}' (form id '${context.formId}') permanently failed after ${attemptsMade} attempt(s) and will not be retried automatically.\n` +
+          `If a DB entry was already created for this submission, it may require manual investigation/cleanup.\n` +
+          `Failure reason: ${error?.message}`,
+      );
+    } else {
+      this.logger.error(
+        `Inbound job with id '${job.id}' failed on attempt ${attemptsMade} of ${maxAttempts} and will be retried. Failure reason: ${error?.message}`,
+        error?.stack,
+        context,
+      );
+    }
   }
 }

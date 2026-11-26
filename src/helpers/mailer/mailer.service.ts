@@ -79,4 +79,22 @@ export class MailerService {
       `\nError message: ${error}`;
     await this.sendEmail(to, subject, text);
   }
+
+  /**
+   * Sends an operational alert to the configured admin address (mail.adminAddress). Like
+   * sendEmail, this never throws - a failure to send the alert is only logged, so a single
+   * attempt is made with no retry.
+   * @param subject the email subject
+   * @param text the email body
+   */
+  async sendAdminAlert(subject: string, text: string) {
+    const adminAddress = this.configService.get<string>('mail.adminAddress');
+    if (!adminAddress) {
+      this.logger.error(
+        `Cannot send admin alert "${subject}": mail.adminAddress is not configured`,
+      );
+      return;
+    }
+    await this.sendEmail(adminAddress, subject, text);
+  }
 }

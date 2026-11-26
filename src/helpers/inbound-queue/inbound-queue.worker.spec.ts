@@ -10,7 +10,7 @@ import { Request } from '../../db/entities/request.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { RequestDBService } from '../../db/request.service';
 import { UtilitiesService } from '../utilities/utilities.service';
-import { Job } from 'bullmq';
+import { Job, UnrecoverableError } from 'bullmq';
 import { mock } from '@suites/doubles.jest';
 import { AxiosError, AxiosRequestHeaders, AxiosResponse } from 'axios';
 import { JwtModule } from '@nestjs/jwt';
@@ -36,6 +36,7 @@ describe('InboundQueueWorker', () => {
   let inboundQueueWorker: InboundQueueWorker;
   let requestDBService: RequestDBService;
   let requestPreparerService: RequestPreparerService;
+  let mailerService: MailerService;
   let queue;
   let configService: ConfigService;
 
@@ -174,6 +175,7 @@ describe('InboundQueueWorker', () => {
             sendSuccess: jest.fn(),
             sendFail: jest.fn(),
             sendWebhookSubmissionSuccess: jest.fn(),
+            sendAdminAlert: jest.fn(),
           },
         },
       ],
@@ -187,6 +189,7 @@ describe('InboundQueueWorker', () => {
     );
     queue = module.get(getQueueToken('inbound'));
     configService = module.get<ConfigService>(ConfigService);
+    mailerService = module.get<MailerService>(MailerService);
     jest.useFakeTimers();
   });
 
@@ -779,12 +782,11 @@ describe('InboundQueueWorker', () => {
       const job = mock<Job>({
         id: 'formId',
         name: `${MessageClass.Submission}-${MessageType.Created}`,
-        data: { id: 'dbId' },
       });
+      job.data = { param: 'value' };
       const req = Object.assign(new Request(), {
         httpMethod: 'POST',
         inboundUrl: 'sampleUrl',
-        webhookBody: '{"param":"value"}',
       });
       const dbFindSpy = jest
         .spyOn(requestDBService, 'findOneByFormSubmissionId')
@@ -799,32 +801,26 @@ describe('InboundQueueWorker', () => {
           data: dynamicWebhookBody,
         } as AxiosResponse);
       await inboundQueueWorker.processFormSubmission(job as unknown as Job);
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+      expect(requestSpy).toHaveBeenCalledWith({ param: 'value' });
       expect(dbFindSpy).toHaveBeenCalledTimes(1);
       expect(dbFindSpy).toHaveBeenCalledWith(job.id);
       expect(dbUpdateSpy).toHaveBeenCalledTimes(1);
-      expect(requestSpy).toHaveBeenCalledTimes(1);
-      expect(requestSpy).toHaveBeenCalledWith({ param: 'value' });
     });
 
     it.each([[{}], [{ 'retry-after': '13' }]])(
-      'should pause queue on upstream 429',
+      'should pause queue on upstream 429 without persisting anything',
       async (headers) => {
         const job = mock<Job>({
           id: 'formId',
           name: 'siebel',
-          data: { id: 'dbId' },
         });
-        const req = Object.assign(new Request(), {
-          httpMethod: 'POST',
-          inboundUrl: 'sampleUrl',
-          webhookBody: '{"param":"value"}',
-        });
-        const dbFindSpy = jest
-          .spyOn(requestDBService, 'findOneByFormSubmissionId')
-          .mockResolvedValueOnce(null);
-        const dbCreateSpy = jest
-          .spyOn(requestDBService, 'createWebhookEntry')
-          .mockResolvedValueOnce(req);
+        job.data = { param: 'value' };
+        const dbFindSpy = jest.spyOn(
+          requestDBService,
+          'findOneByFormSubmissionId',
+        );
+        const dbCreateSpy = jest.spyOn(requestDBService, 'createWebhookEntry');
         const requestSpy = jest
           .spyOn(requestPreparerService, 'getFormSubmissionPayload')
           .mockImplementationOnce(async () => {
@@ -851,35 +847,28 @@ describe('InboundQueueWorker', () => {
         await expect(
           inboundQueueWorker.processFormSubmission(job as unknown as Job),
         ).rejects.toThrow();
-        expect(dbFindSpy).toHaveBeenCalledTimes(1);
-        expect(dbFindSpy).toHaveBeenCalledWith(job.id);
-        expect(dbCreateSpy).toHaveBeenCalledTimes(1);
-        expect(dbCreateSpy).toHaveBeenCalledWith(job.id, job.data);
         expect(requestSpy).toHaveBeenCalledTimes(1);
         expect(requestSpy).toHaveBeenCalledWith({ param: 'value' });
+        // nothing is persisted before the submission is successfully fetched and approved
+        expect(dbFindSpy).toHaveBeenCalledTimes(0);
+        expect(dbCreateSpy).toHaveBeenCalledTimes(0);
         expect(pauseSpy).toHaveBeenCalledTimes(1);
         jest.advanceTimersToNextTimer();
         expect(resumeSpy).toHaveBeenCalledTimes(1);
       },
     );
 
-    it('should return job to queue on upstream non 429', async () => {
+    it('should return job to queue on upstream non 429 without persisting anything', async () => {
       const job = mock<Job>({
         id: 'formId',
         name: 'siebel',
-        data: { id: 'dbId' },
       });
-      const req = Object.assign(new Request(), {
-        httpMethod: 'POST',
-        inboundUrl: 'sampleUrl',
-        webhookBody: '{"param":"value"}',
-      });
-      const dbFindSpy = jest
-        .spyOn(requestDBService, 'findOneByFormSubmissionId')
-        .mockResolvedValueOnce(null);
-      const dbCreateSpy = jest
-        .spyOn(requestDBService, 'createWebhookEntry')
-        .mockResolvedValueOnce(req);
+      job.data = { param: 'value' };
+      const dbFindSpy = jest.spyOn(
+        requestDBService,
+        'findOneByFormSubmissionId',
+      );
+      const dbCreateSpy = jest.spyOn(requestDBService, 'createWebhookEntry');
       const requestSpy = jest
         .spyOn(requestPreparerService, 'getFormSubmissionPayload')
         .mockImplementationOnce(async () => {
@@ -894,64 +883,47 @@ describe('InboundQueueWorker', () => {
       await expect(
         inboundQueueWorker.processFormSubmission(job as unknown as Job),
       ).rejects.toThrow();
-      expect(dbFindSpy).toHaveBeenCalledTimes(1);
-      expect(dbFindSpy).toHaveBeenCalledWith(job.id);
-      expect(dbCreateSpy).toHaveBeenCalledTimes(1);
-      expect(dbCreateSpy).toHaveBeenCalledWith(job.id, job.data);
       expect(requestSpy).toHaveBeenCalledTimes(1);
       expect(requestSpy).toHaveBeenCalledWith({ param: 'value' });
+      expect(dbFindSpy).toHaveBeenCalledTimes(0);
+      expect(dbCreateSpy).toHaveBeenCalledTimes(0);
     });
 
-    it('should delete db entry on non-accepted job type', async () => {
+    it('should not persist anything for a non-accepted job type', async () => {
       const job = mock<Job>({
         id: 'formId',
         name: 'siebel',
-        data: { id: 'dbId' },
       });
-      const req = Object.assign(new Request(), {
-        id: 'id',
-        httpMethod: 'POST',
-        inboundUrl: 'sampleUrl',
-        webhookFormSubmissionId: 'formId',
-        webhookBody: '{"meta":{"formId":"formId"}}',
-      });
-      const dbFindSpy = jest
-        .spyOn(requestDBService, 'findOneByFormSubmissionId')
-        .mockResolvedValueOnce(null);
-      const dbCreateSpy = jest
-        .spyOn(requestDBService, 'createWebhookEntry')
-        .mockResolvedValueOnce(req);
-      const dbRemoveSpy = jest
-        .spyOn(requestDBService, 'remove')
-        .mockResolvedValueOnce(undefined);
+      job.data = { meta: { formId: 'formId' } };
+      const dbFindSpy = jest.spyOn(
+        requestDBService,
+        'findOneByFormSubmissionId',
+      );
+      const dbCreateSpy = jest.spyOn(requestDBService, 'createWebhookEntry');
+      const dbRemoveSpy = jest.spyOn(requestDBService, 'remove');
       const requestSpy = jest
         .spyOn(requestPreparerService, 'getFormSubmissionPayload')
         .mockImplementationOnce(async () => {
           throw new Error(unsupportedChefsFormTypeError);
         });
       await inboundQueueWorker.processFormSubmission(job as unknown as Job);
-      expect(dbFindSpy).toHaveBeenCalledTimes(1);
-      expect(dbFindSpy).toHaveBeenCalledWith(job.id);
-      expect(dbCreateSpy).toHaveBeenCalledTimes(1);
-      expect(dbCreateSpy).toHaveBeenCalledWith(job.id, job.data);
       expect(requestSpy).toHaveBeenCalledTimes(1);
       expect(requestSpy).toHaveBeenCalledWith({ meta: { formId: 'formId' } });
-      expect(dbRemoveSpy).toHaveBeenCalledTimes(1);
-      expect(dbRemoveSpy).toHaveBeenCalledWith(req.id);
+      expect(dbFindSpy).toHaveBeenCalledTimes(0);
+      expect(dbCreateSpy).toHaveBeenCalledTimes(0);
+      expect(dbRemoveSpy).toHaveBeenCalledTimes(0);
     });
 
     it('should throw on update error', async () => {
       const job = mock<Job>({
         id: 'formId',
         name: 'siebel',
-        data: { id: 'dbId' },
       });
+      job.data = { meta: { formId: 'formId' } };
       const req = Object.assign(new Request(), {
         id: 'id',
         httpMethod: 'POST',
         inboundUrl: 'sampleUrl',
-        webhookFormSubmissionId: 'formId',
-        webhookBody: '{"meta":{"formId":"formId"}}',
       });
       const dbFindSpy = jest
         .spyOn(requestDBService, 'findOneByFormSubmissionId')
@@ -973,38 +945,32 @@ describe('InboundQueueWorker', () => {
       await expect(
         inboundQueueWorker.processFormSubmission(job as unknown as Job),
       ).rejects.toThrow(BadRequestException);
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+      expect(requestSpy).toHaveBeenCalledWith({ meta: { formId: 'formId' } });
       expect(dbFindSpy).toHaveBeenCalledTimes(1);
       expect(dbFindSpy).toHaveBeenCalledWith(job.id);
       expect(dbCreateSpy).toHaveBeenCalledTimes(1);
       expect(dbCreateSpy).toHaveBeenCalledWith(job.id, job.data);
-      expect(requestSpy).toHaveBeenCalledTimes(1);
-      expect(requestSpy).toHaveBeenCalledWith({ meta: { formId: 'formId' } });
       expect(dbUpdateSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('should skip ingestion and remove the DB entry when a form requiring approval is not yet approved', async () => {
+    it('should skip ingestion without persisting anything when a form requiring approval is not yet approved', async () => {
       inboundQueueWorker.formConfigs['dynamic'].requiresApprovalForIngestion =
         true;
       const job = mock<Job>({
         id: 'formId',
         name: `${MessageClass.Submission}-${MessageType.Created}`,
-        data: { id: 'dbId' },
       });
-      const req = Object.assign(new Request(), {
-        id: 'id',
-        httpMethod: 'POST',
-        inboundUrl: 'sampleUrl',
-        webhookBody: '{"meta":{"formId":"dynamic"}}',
-      });
+      job.data = { meta: { formId: 'dynamic' } };
       const unapprovedBody = structuredClone(dynamicWebhookBody);
       unapprovedBody.submission.submission.data['isApprovedForIngestion'] =
         false;
-      const dbFindSpy = jest
-        .spyOn(requestDBService, 'findOneByFormSubmissionId')
-        .mockResolvedValueOnce(req);
-      const dbRemoveSpy = jest
-        .spyOn(requestDBService, 'remove')
-        .mockResolvedValueOnce(undefined);
+      const dbFindSpy = jest.spyOn(
+        requestDBService,
+        'findOneByFormSubmissionId',
+      );
+      const dbCreateSpy = jest.spyOn(requestDBService, 'createWebhookEntry');
+      const dbRemoveSpy = jest.spyOn(requestDBService, 'remove');
       const dbUpdateSpy = jest.spyOn(requestDBService, 'updateAndAddToQueue');
       const requestSpy = jest
         .spyOn(requestPreparerService, 'getFormSubmissionPayload')
@@ -1013,10 +979,12 @@ describe('InboundQueueWorker', () => {
           data: unapprovedBody,
         } as AxiosResponse);
       await inboundQueueWorker.processFormSubmission(job as unknown as Job);
-      expect(dbFindSpy).toHaveBeenCalledTimes(1);
       expect(requestSpy).toHaveBeenCalledTimes(1);
-      expect(dbRemoveSpy).toHaveBeenCalledTimes(1);
-      expect(dbRemoveSpy).toHaveBeenCalledWith(req.id);
+      // the submission is rejected before an entry is ever created, so nothing is persisted
+      // and there is nothing to remove, even if the server crashes right after this point
+      expect(dbFindSpy).toHaveBeenCalledTimes(0);
+      expect(dbCreateSpy).toHaveBeenCalledTimes(0);
+      expect(dbRemoveSpy).toHaveBeenCalledTimes(0);
       expect(dbUpdateSpy).toHaveBeenCalledTimes(0);
     });
 
@@ -1026,18 +994,20 @@ describe('InboundQueueWorker', () => {
       const job = mock<Job>({
         id: 'formId',
         name: `${MessageClass.Submission}-${MessageType.Created}`,
-        data: { id: 'dbId' },
       });
+      job.data = { meta: { formId: 'dynamic' } };
       const req = Object.assign(new Request(), {
         id: 'id',
         httpMethod: 'POST',
         inboundUrl: 'sampleUrl',
-        webhookBody: '{"meta":{"formId":"dynamic"}}',
       });
       const approvedBody = structuredClone(dynamicWebhookBody);
       approvedBody.submission.submission.data['isApprovedForIngestion'] = true;
       const dbFindSpy = jest
         .spyOn(requestDBService, 'findOneByFormSubmissionId')
+        .mockResolvedValueOnce(null);
+      const dbCreateSpy = jest
+        .spyOn(requestDBService, 'createWebhookEntry')
         .mockResolvedValueOnce(req);
       const dbUpdateSpy = jest
         .spyOn(requestDBService, 'updateAndAddToQueue')
@@ -1049,9 +1019,87 @@ describe('InboundQueueWorker', () => {
           data: approvedBody,
         } as AxiosResponse);
       await inboundQueueWorker.processFormSubmission(job as unknown as Job);
-      expect(dbFindSpy).toHaveBeenCalledTimes(1);
       expect(requestSpy).toHaveBeenCalledTimes(1);
+      expect(dbFindSpy).toHaveBeenCalledTimes(1);
+      expect(dbCreateSpy).toHaveBeenCalledTimes(1);
       expect(dbUpdateSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('onFailed tests', () => {
+    it('should log a retry message when attempts remain and the error is recoverable, without alerting the admin', async () => {
+      const job = mock<Job>({ id: 'formId' });
+      job.data = { meta: { formId: 'dynamic' } };
+      job.attemptsMade = 1;
+      job.opts = { attempts: 5 };
+      const errorSpy = jest.spyOn(inboundQueueWorker['logger'], 'error');
+      const alertSpy = jest.spyOn(mailerService, 'sendAdminAlert');
+      const error = new Error('transient failure');
+      await inboundQueueWorker.onFailed(job as unknown as Job, error);
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('failed on attempt 1 of 5'),
+        error.stack,
+        expect.objectContaining({
+          formSubmissionId: 'formId',
+          formId: 'dynamic',
+          attemptsMade: 1,
+          maxAttempts: 5,
+        }),
+      );
+      expect(alertSpy).toHaveBeenCalledTimes(0);
+    });
+
+    it('should log a permanent failure message and alert the admin once attempts are exhausted', async () => {
+      const job = mock<Job>({ id: 'formId' });
+      job.data = { meta: { formId: 'dynamic' } };
+      job.attemptsMade = 5;
+      job.opts = { attempts: 5 };
+      const errorSpy = jest.spyOn(inboundQueueWorker['logger'], 'error');
+      const alertSpy = jest.spyOn(mailerService, 'sendAdminAlert');
+      const error = new Error('final failure');
+      await inboundQueueWorker.onFailed(job as unknown as Job, error);
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('permanently failed'),
+        error.stack,
+        expect.objectContaining({
+          formSubmissionId: 'formId',
+          formId: 'dynamic',
+          attemptsMade: 5,
+          maxAttempts: 5,
+        }),
+      );
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      expect(alertSpy).toHaveBeenCalledWith(
+        expect.stringContaining('permanently failed'),
+        expect.stringContaining('final failure'),
+      );
+    });
+
+    it('should log a permanent failure message and alert the admin for an UnrecoverableError even if attempts remain (e.g. a job that stalled too many times)', async () => {
+      const job = mock<Job>({ id: 'formId' });
+      job.data = { meta: { formId: 'dynamic' } };
+      job.attemptsMade = 1;
+      job.opts = { attempts: 5 };
+      const errorSpy = jest.spyOn(inboundQueueWorker['logger'], 'error');
+      const alertSpy = jest.spyOn(mailerService, 'sendAdminAlert');
+      const error = new UnrecoverableError(
+        'job stalled more than allowable limit',
+      );
+      await inboundQueueWorker.onFailed(job as unknown as Job, error);
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('permanently failed'),
+        error.stack,
+        expect.objectContaining({
+          formSubmissionId: 'formId',
+          formId: 'dynamic',
+          attemptsMade: 1,
+          maxAttempts: 5,
+        }),
+      );
     });
   });
 });
