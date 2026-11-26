@@ -20,9 +20,4 @@ enum MessageType {
   Modified = 'modified',
 }
 
-enum FormType {
-  Memo = 'memo',
-  Dynamic = 'dynamic',
-}
-
-export { UpstreamType, HttpMethod, MessageClass, MessageType, FormType };
+export { UpstreamType, HttpMethod, MessageClass, MessageType };

@@ -4,23 +4,20 @@ import { Job, Queue } from 'bullmq';
 import { RequestPreparerService } from '../../external-api/request-preparer/request-preparer.service';
 import { RequestDBService } from '../../db/request.service';
 import { isAxiosError, HttpStatusCode } from 'axios';
-import { UtilitiesService } from '../utilities/utilities.service';
 import { ConfigService } from '@nestjs/config';
 import {
-  FormType,
   HttpMethod,
   MessageClass,
   MessageType,
   UpstreamType,
 } from '../../common/constants/enumerations';
+import { FormConfig } from '../../configuration/form-configs';
 import { MailerService } from '../mailer/mailer.service';
-import {
-  dbUpdateError,
-  unsupportedChefsFormTypeError,
-} from '../../common/constants/errors';
+import { dbUpdateError } from '../../common/constants/errors';
 import {
   chefsRetryWaitSeconds,
   CONTENT_TYPE,
+  isApprovedForIngestionKey,
   trustedIdirHeaderName,
   uniformResponseParamName,
 } from '../../common/constants/parameter-constants';
@@ -29,38 +26,19 @@ import util from 'node:util';
 @Processor('inbound')
 export class InboundQueueWorker extends WorkerHost {
   formSubmissionJobName: string;
-  inPersonVisitsUrl: string;
-  inPersonVisitsWorkspace: string | undefined;
-  chefsEndpoints: object;
-  chefsWorkspaces: object;
-  chefsMethods: object;
+  formConfigs: Record<string, FormConfig>;
 
   constructor(
     private readonly requestPreparerService: RequestPreparerService,
     private readonly requestDBService: RequestDBService,
     @InjectQueue('inbound') private readonly inboundQueue: Queue,
-    private readonly utilitiesService: UtilitiesService,
     private readonly configService: ConfigService,
     private readonly mailerService: MailerService,
   ) {
     super();
     this.formSubmissionJobName = `${MessageClass.Submission}-${MessageType.Created}`;
-    this.inPersonVisitsUrl = encodeURI(
-      this.configService.get<string>('authorizedUrls.siebel') +
-        this.configService.get<string>('siebel.endpointUrls.inPersonVisits'),
-    );
-    this.inPersonVisitsWorkspace = this.configService.get<string>(
-      'siebel.workspace.inPersonVisits',
-    );
-    this.chefsEndpoints = this.configService.get<object>(
-      `siebel.endpointUrls.${FormType.Dynamic}`,
-    );
-    this.chefsWorkspaces = this.configService.get<object>(
-      `siebel.workspace.${FormType.Dynamic}`,
-    );
-    this.chefsMethods = this.configService.get<object>(
-      `siebel.method.${FormType.Dynamic}`,
-    );
+    this.formConfigs =
+      this.configService.get<Record<string, FormConfig>>('chefs.formConfigs');
   }
 
   private readonly logger = new Logger(InboundQueueWorker.name);
@@ -73,55 +51,6 @@ export class InboundQueueWorker extends WorkerHost {
       default:
         throw new Error(`No processor defined for job with name: ${job.name}`);
     }
-  }
-
-  formatMemoForUpstream(body: object) {
-    // TODO: Change to Memo form when Data API is fixed
-    // For now, use in person visits
-    const submissionData = body['submission']['submission']['data'];
-
-    const upstreamBody = {
-      Id: 'NULL',
-      'Date of visit':
-        this.utilitiesService.convertISODateToUpstreamFormatNoTime(
-          submissionData.dateOfVisit,
-        ),
-      'Parent Id': submissionData['caseRowId'],
-      Type: 'In Person Child Youth',
-      'Visit Description': submissionData['visitDescription'],
-      VisitDetails: [
-        {
-          'Visit Detail Value': submissionData['visitDetail'],
-        },
-      ],
-    };
-    const headers = {
-      Accept: CONTENT_TYPE,
-      'Content-Type': CONTENT_TYPE,
-      'Accept-Encoding': '*',
-      [trustedIdirHeaderName]: submissionData.user.username,
-    };
-    const params = {
-      [uniformResponseParamName]: 'y',
-    };
-    if (this.inPersonVisitsWorkspace !== undefined) {
-      params['workspace'] = this.inPersonVisitsWorkspace;
-    }
-
-    const updateObject = {
-      email: submissionData.user.email,
-      idir: submissionData.user.username,
-      firstName: submissionData.user.firstName,
-      lastName: submissionData.user.lastName,
-      upstreamType: UpstreamType.Siebel,
-      outboundUrl: this.inPersonVisitsUrl,
-      httpMethod: HttpMethod.Put,
-      contentType: CONTENT_TYPE,
-      headers,
-      params,
-      body: JSON.stringify(upstreamBody),
-    };
-    return updateObject;
   }
 
   formatSiebelUpstream(
@@ -138,16 +67,17 @@ export class InboundQueueWorker extends WorkerHost {
     const params = {
       [uniformResponseParamName]: 'y',
     };
-    const workspace = this.chefsWorkspaces[formId];
+    const formConfig = this.formConfigs[formId];
+    const workspace = formConfig?.workspace;
     if (workspace !== undefined) {
       params['workspace'] = workspace;
     }
 
     const url = encodeURI(
       this.configService.get<string>('authorizedUrls.siebel') +
-        this.chefsEndpoints[formId],
+        formConfig?.upstreamUrl,
     );
-    const method = this.chefsMethods[formId];
+    const method = formConfig?.httpMethod;
 
     const updateObject = {
       email: submissionData.userDataRetryApi.email,
@@ -279,6 +209,48 @@ export class InboundQueueWorker extends WorkerHost {
         );
       }
     }
+  }
+
+  /**
+   * Recursively searches submission data for a property with the given key, looking inside
+   * nested objects and repeating groups (arrays) until it is found, similar to how
+   * grabJsonBasePathRecursive searches the schema tree for the "Base_Paths" component.
+   * @param datum the submission data (or a nested part of it) to search
+   * @param key the property key to search for
+   * @returns the value found at the given key, or undefined if it is not present anywhere in datum
+   */
+  grabFieldValueRecursive(datum: unknown, key: string): unknown {
+    if (datum === null || typeof datum !== 'object') {
+      return undefined;
+    }
+    if (!Array.isArray(datum) && key in datum) {
+      return datum[key];
+    }
+    for (const value of Array.isArray(datum) ? datum : Object.values(datum)) {
+      const found = this.grabFieldValueRecursive(value, key);
+      if (found !== undefined) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Checks whether a form submission is approved for ingestion. Forms whose config does not set
+   * requiresApprovalForIngestion are always approved. Otherwise, the submission data is searched
+   * recursively for an "isApprovedForIngestion" field (a checkbox or non-empty textbox in
+   * form.io), which must be truthy for the submission to be approved.
+   * @param formId the id of the form the submission belongs to
+   * @param submissionData the submission data to search
+   * @returns true if the submission is approved for ingestion
+   */
+  checkApprovedForIngestion(formId: string, submissionData: object): boolean {
+    if (!this.formConfigs[formId]?.requiresApprovalForIngestion) {
+      return true;
+    }
+    return Boolean(
+      this.grabFieldValueRecursive(submissionData, isApprovedForIngestionKey),
+    );
   }
 
   /**
@@ -560,17 +532,6 @@ export class InboundQueueWorker extends WorkerHost {
     return this.formatSiebelUpstream(upstreamBody, submissionData, formId);
   }
 
-  formatInputForUpstream(body: object, formName: FormType) {
-    switch (formName) {
-      case FormType.Memo:
-        return this.formatMemoForUpstream(body);
-      case FormType.Dynamic:
-        return this.formatDynamicForUpstream(body);
-      default:
-        throw new Error(unsupportedChefsFormTypeError);
-    }
-  }
-
   async processFormSubmission(job: Job<any, any, string>) {
     // Check if data has already been added to DB. If not, add it
     let requestData = await this.requestDBService.findOneByFormSubmissionId(
@@ -585,9 +546,9 @@ export class InboundQueueWorker extends WorkerHost {
     const data = JSON.parse(requestData.webhookBody);
 
     // Get CHEFS form data from upstream
-    let response, formName;
+    let response;
     try {
-      [response, formName] =
+      response =
         await this.requestPreparerService.getFormSubmissionPayload(data);
     } catch (error) {
       if (isAxiosError(error)) {
@@ -618,10 +579,21 @@ export class InboundQueueWorker extends WorkerHost {
       }
     }
 
+    const formId = data['meta']?.['formId'];
+    const submissionData = response.data['submission']['submission']['data'];
+    if (!this.checkApprovedForIngestion(formId, submissionData)) {
+      // Complete job and delete DB entry if form submission is not yet approved for ingestion
+      this.logger.log(
+        `Form submission with id '${requestData.id}' is not approved for ingestion, skipping...`,
+      );
+      await this.requestDBService.remove(requestData.id);
+      return;
+    }
+
     // Add to outbound queue
     let updateObject;
     try {
-      updateObject = this.formatInputForUpstream(response.data, formName);
+      updateObject = this.formatDynamicForUpstream(response.data);
     } catch (error) {
       // Complete job and delete DB entry if form is not formatted correctly
       this.logger.error(`Formatting error`);
