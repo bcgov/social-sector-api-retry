@@ -31,6 +31,7 @@ import util from 'node:util';
 @Processor('inbound')
 export class InboundQueueWorker extends WorkerHost {
   formSubmissionJobName: string;
+  formSubmissionUpdatedJobName: string;
   formConfigs: Record<string, FormConfig>;
 
   constructor(
@@ -42,6 +43,7 @@ export class InboundQueueWorker extends WorkerHost {
   ) {
     super();
     this.formSubmissionJobName = `${MessageClass.Submission}-${MessageType.Created}`;
+    this.formSubmissionUpdatedJobName = `${MessageClass.Submission}-${MessageType.Updated}`;
     this.formConfigs =
       this.configService.get<Record<string, FormConfig>>('chefs.formConfigs');
   }
@@ -51,6 +53,7 @@ export class InboundQueueWorker extends WorkerHost {
   async process(job: Job<any, any, string>): Promise<any> {
     switch (job.name) {
       case this.formSubmissionJobName:
+      case this.formSubmissionUpdatedJobName:
         await this.processFormSubmission(job);
         return;
       default:

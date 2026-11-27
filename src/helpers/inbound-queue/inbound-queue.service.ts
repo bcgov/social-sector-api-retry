@@ -21,7 +21,10 @@ export class InboundQueueService implements OnApplicationBootstrap {
     const messageType = data['meta']['type'];
     switch (messageClass) {
       case MessageClass.Submission:
-        if (messageType === MessageType.Created) {
+        if (
+          messageType === MessageType.Created ||
+          messageType === MessageType.Updated
+        ) {
           await this.addFormSubmissionEventToQueue(
             data,
             messageClass,

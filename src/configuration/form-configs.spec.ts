@@ -16,7 +16,7 @@ describe('form-configs', () => {
   };
   const formTwo = {
     formId: 'formTwo',
-    events: ['created', 'modified'],
+    events: ['created', 'updated'],
     upstreamUrl: '/endpoint/two',
     requiresApprovalForIngestion: true,
     apiKey: 'apiKeyTwo',
@@ -56,7 +56,7 @@ describe('form-configs', () => {
       expect(result).toEqual([
         `${natsSubmissionSubjectPrefix}.created.formOne`,
         `${natsSubmissionSubjectPrefix}.created.formTwo`,
-        `${natsSubmissionSubjectPrefix}.modified.formTwo`,
+        `${natsSubmissionSubjectPrefix}.updated.formTwo`,
       ]);
     });
 

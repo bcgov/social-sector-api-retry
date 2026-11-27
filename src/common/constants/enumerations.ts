@@ -17,7 +17,7 @@ enum MessageClass {
 enum MessageType {
   Created = 'created',
   Deleted = 'deleted',
-  Modified = 'modified',
+  Updated = 'updated',
 }
 
 export { UpstreamType, HttpMethod, MessageClass, MessageType };
