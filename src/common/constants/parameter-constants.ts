@@ -8,6 +8,7 @@ const chefsRetryWaitSeconds = 60;
 const upstreamDateFormatNoTime = 'MM/dd/yyyy';
 const uniformResponseParamName = 'uniformresponse';
 const trustedIdirHeaderName = 'X-ICM-TrustedUsername';
+const isApprovedForIngestionKey = 'isApprovedForIngestion';
 
 export {
   CONTENT_TYPE,
@@ -20,4 +21,5 @@ export {
   upstreamDateFormatNoTime,
   uniformResponseParamName,
   trustedIdirHeaderName,
+  isApprovedForIngestionKey,
 };

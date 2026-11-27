@@ -13,7 +13,7 @@ import {
   InternalAxiosRequestConfig,
   RawAxiosRequestHeaders,
 } from 'axios';
-import { FormType } from '../../common/constants/enumerations';
+import { unsupportedChefsFormTypeError } from '../../common/constants/errors';
 
 describe('RequestPreparerService', () => {
   let service: RequestPreparerService;
@@ -52,11 +52,15 @@ describe('RequestPreparerService', () => {
           useValue: {
             get: jest.fn((key: string) => {
               const lookup = {
-                ['chefs.formIds']: {
-                  [FormType.Memo]: 'formId',
-                },
-                ['chefs.apiKeys']: {
-                  [FormType.Memo]: 'apiKey',
+                ['chefs.formConfigs']: {
+                  formId: {
+                    formId: 'formId',
+                    events: ['created'],
+                    upstreamUrl: '/endpointhere',
+                    requiresApprovalForIngestion: false,
+                    apiKey: 'apiKey',
+                    httpMethod: 'PUT',
+                  },
                 },
                 ['chefs.endpointUrls.getFormSubmission']:
                   '/endpointhere/formSubmissionId',
@@ -206,11 +210,25 @@ describe('RequestPreparerService', () => {
           statusText: 'OK',
         } as AxiosResponse<any, any>),
       );
-      const [result, formName] =
-        await service.getFormSubmissionPayload(eventBody);
+      const result = await service.getFormSubmissionPayload(eventBody);
       expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith(
+        'http://baseurl/endpointhere/submissionId',
+        {
+          auth: { username: 'formId', password: 'apiKey' },
+        },
+      );
       expect(result.data).toEqual({});
-      expect(formName).toEqual(FormType.Memo);
+    });
+
+    it('throws an error for a formId without a form config', async () => {
+      const spy = jest.spyOn(httpService, 'get');
+      await expect(
+        service.getFormSubmissionPayload({
+          meta: { formId: 'unknownFormId', submissionId: 'submissionId' },
+        }),
+      ).rejects.toHaveProperty('message', unsupportedChefsFormTypeError);
+      expect(spy).toHaveBeenCalledTimes(0);
     });
   });
 });

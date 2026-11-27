@@ -6,6 +6,7 @@ import { Transporter } from 'nodemailer';
 describe('MailerService', () => {
   let service: MailerService;
   let transporter: Transporter;
+  let configService: ConfigService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -27,6 +28,7 @@ describe('MailerService', () => {
 
     service = module.get<MailerService>(MailerService);
     transporter = service.transporter;
+    configService = module.get<ConfigService>(ConfigService);
   });
 
   it('should be defined', () => {
@@ -72,6 +74,48 @@ describe('MailerService', () => {
         .mockImplementationOnce(async () => {});
       await service.sendFail('toEmail', 'id', '422', 'Unprocessable entity');
       expect(sendSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('sendAdminAlert tests', () => {
+    it('should send an alert to the configured admin address', async () => {
+      jest
+        .spyOn(configService, 'get')
+        .mockImplementation((key: string) =>
+          key === 'mail.adminAddress' ? 'admin@example.com' : undefined,
+        );
+      const sendSpy = jest
+        .spyOn(transporter, 'sendMail')
+        .mockImplementationOnce(async () => {});
+      await service.sendAdminAlert('alertSubject', 'alertText');
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+      expect(sendSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'admin@example.com',
+          subject: 'alertSubject',
+          text: 'alertText',
+        }),
+      );
+    });
+
+    it('should log an error and not attempt to send when no admin address is configured', async () => {
+      const sendSpy = jest.spyOn(transporter, 'sendMail');
+      await service.sendAdminAlert('alertSubject', 'alertText');
+      expect(sendSpy).toHaveBeenCalledTimes(0);
+    });
+
+    it('should not throw when sending the alert fails', async () => {
+      jest
+        .spyOn(configService, 'get')
+        .mockImplementation((key: string) =>
+          key === 'mail.adminAddress' ? 'admin@example.com' : undefined,
+        );
+      jest.spyOn(transporter, 'sendMail').mockImplementationOnce(async () => {
+        throw new Error(`Couldn't send mail`);
+      });
+      await expect(
+        service.sendAdminAlert('alertSubject', 'alertText'),
+      ).resolves.toBeUndefined();
     });
   });
 });

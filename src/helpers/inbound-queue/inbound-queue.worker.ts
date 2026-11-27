@@ -1,26 +1,28 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import {
+  InjectQueue,
+  OnWorkerEvent,
+  Processor,
+  WorkerHost,
+} from '@nestjs/bullmq';
 import { BadRequestException, Logger } from '@nestjs/common';
-import { Job, Queue } from 'bullmq';
+import { Job, Queue, UnrecoverableError } from 'bullmq';
 import { RequestPreparerService } from '../../external-api/request-preparer/request-preparer.service';
 import { RequestDBService } from '../../db/request.service';
 import { isAxiosError, HttpStatusCode } from 'axios';
-import { UtilitiesService } from '../utilities/utilities.service';
 import { ConfigService } from '@nestjs/config';
 import {
-  FormType,
   HttpMethod,
   MessageClass,
   MessageType,
   UpstreamType,
 } from '../../common/constants/enumerations';
+import { FormConfig } from '../../configuration/form-configs';
 import { MailerService } from '../mailer/mailer.service';
-import {
-  dbUpdateError,
-  unsupportedChefsFormTypeError,
-} from '../../common/constants/errors';
+import { dbUpdateError } from '../../common/constants/errors';
 import {
   chefsRetryWaitSeconds,
   CONTENT_TYPE,
+  isApprovedForIngestionKey,
   trustedIdirHeaderName,
   uniformResponseParamName,
 } from '../../common/constants/parameter-constants';
@@ -29,38 +31,19 @@ import util from 'node:util';
 @Processor('inbound')
 export class InboundQueueWorker extends WorkerHost {
   formSubmissionJobName: string;
-  inPersonVisitsUrl: string;
-  inPersonVisitsWorkspace: string | undefined;
-  chefsEndpoints: object;
-  chefsWorkspaces: object;
-  chefsMethods: object;
+  formConfigs: Record<string, FormConfig>;
 
   constructor(
     private readonly requestPreparerService: RequestPreparerService,
     private readonly requestDBService: RequestDBService,
     @InjectQueue('inbound') private readonly inboundQueue: Queue,
-    private readonly utilitiesService: UtilitiesService,
     private readonly configService: ConfigService,
     private readonly mailerService: MailerService,
   ) {
     super();
     this.formSubmissionJobName = `${MessageClass.Submission}-${MessageType.Created}`;
-    this.inPersonVisitsUrl = encodeURI(
-      this.configService.get<string>('authorizedUrls.siebel') +
-        this.configService.get<string>('siebel.endpointUrls.inPersonVisits'),
-    );
-    this.inPersonVisitsWorkspace = this.configService.get<string>(
-      'siebel.workspace.inPersonVisits',
-    );
-    this.chefsEndpoints = this.configService.get<object>(
-      `siebel.endpointUrls.${FormType.Dynamic}`,
-    );
-    this.chefsWorkspaces = this.configService.get<object>(
-      `siebel.workspace.${FormType.Dynamic}`,
-    );
-    this.chefsMethods = this.configService.get<object>(
-      `siebel.method.${FormType.Dynamic}`,
-    );
+    this.formConfigs =
+      this.configService.get<Record<string, FormConfig>>('chefs.formConfigs');
   }
 
   private readonly logger = new Logger(InboundQueueWorker.name);
@@ -73,55 +56,6 @@ export class InboundQueueWorker extends WorkerHost {
       default:
         throw new Error(`No processor defined for job with name: ${job.name}`);
     }
-  }
-
-  formatMemoForUpstream(body: object) {
-    // TODO: Change to Memo form when Data API is fixed
-    // For now, use in person visits
-    const submissionData = body['submission']['submission']['data'];
-
-    const upstreamBody = {
-      Id: 'NULL',
-      'Date of visit':
-        this.utilitiesService.convertISODateToUpstreamFormatNoTime(
-          submissionData.dateOfVisit,
-        ),
-      'Parent Id': submissionData['caseRowId'],
-      Type: 'In Person Child Youth',
-      'Visit Description': submissionData['visitDescription'],
-      VisitDetails: [
-        {
-          'Visit Detail Value': submissionData['visitDetail'],
-        },
-      ],
-    };
-    const headers = {
-      Accept: CONTENT_TYPE,
-      'Content-Type': CONTENT_TYPE,
-      'Accept-Encoding': '*',
-      [trustedIdirHeaderName]: submissionData.user.username,
-    };
-    const params = {
-      [uniformResponseParamName]: 'y',
-    };
-    if (this.inPersonVisitsWorkspace !== undefined) {
-      params['workspace'] = this.inPersonVisitsWorkspace;
-    }
-
-    const updateObject = {
-      email: submissionData.user.email,
-      idir: submissionData.user.username,
-      firstName: submissionData.user.firstName,
-      lastName: submissionData.user.lastName,
-      upstreamType: UpstreamType.Siebel,
-      outboundUrl: this.inPersonVisitsUrl,
-      httpMethod: HttpMethod.Put,
-      contentType: CONTENT_TYPE,
-      headers,
-      params,
-      body: JSON.stringify(upstreamBody),
-    };
-    return updateObject;
   }
 
   formatSiebelUpstream(
@@ -138,16 +72,17 @@ export class InboundQueueWorker extends WorkerHost {
     const params = {
       [uniformResponseParamName]: 'y',
     };
-    const workspace = this.chefsWorkspaces[formId];
+    const formConfig = this.formConfigs[formId];
+    const workspace = formConfig?.workspace;
     if (workspace !== undefined) {
       params['workspace'] = workspace;
     }
 
     const url = encodeURI(
       this.configService.get<string>('authorizedUrls.siebel') +
-        this.chefsEndpoints[formId],
+        formConfig?.upstreamUrl,
     );
-    const method = this.chefsMethods[formId];
+    const method = formConfig?.httpMethod;
 
     const updateObject = {
       email: submissionData.userDataRetryApi.email,
@@ -279,6 +214,48 @@ export class InboundQueueWorker extends WorkerHost {
         );
       }
     }
+  }
+
+  /**
+   * Recursively searches submission data for a property with the given key, looking inside
+   * nested objects and repeating groups (arrays) until it is found, similar to how
+   * grabJsonBasePathRecursive searches the schema tree for the "Base_Paths" component.
+   * @param datum the submission data (or a nested part of it) to search
+   * @param key the property key to search for
+   * @returns the value found at the given key, or undefined if it is not present anywhere in datum
+   */
+  grabFieldValueRecursive(datum: unknown, key: string): unknown {
+    if (datum === null || typeof datum !== 'object') {
+      return undefined;
+    }
+    if (!Array.isArray(datum) && key in datum) {
+      return datum[key];
+    }
+    for (const value of Array.isArray(datum) ? datum : Object.values(datum)) {
+      const found = this.grabFieldValueRecursive(value, key);
+      if (found !== undefined) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Checks whether a form submission is approved for ingestion. Forms whose config does not set
+   * requiresApprovalForIngestion are always approved. Otherwise, the submission data is searched
+   * recursively for an "isApprovedForIngestion" field (a checkbox or non-empty textbox in
+   * form.io), which must be truthy for the submission to be approved.
+   * @param formId the id of the form the submission belongs to
+   * @param submissionData the submission data to search
+   * @returns true if the submission is approved for ingestion
+   */
+  checkApprovedForIngestion(formId: string, submissionData: object): boolean {
+    if (!this.formConfigs[formId]?.requiresApprovalForIngestion) {
+      return true;
+    }
+    return Boolean(
+      this.grabFieldValueRecursive(submissionData, isApprovedForIngestionKey),
+    );
   }
 
   /**
@@ -560,34 +537,15 @@ export class InboundQueueWorker extends WorkerHost {
     return this.formatSiebelUpstream(upstreamBody, submissionData, formId);
   }
 
-  formatInputForUpstream(body: object, formName: FormType) {
-    switch (formName) {
-      case FormType.Memo:
-        return this.formatMemoForUpstream(body);
-      case FormType.Dynamic:
-        return this.formatDynamicForUpstream(body);
-      default:
-        throw new Error(unsupportedChefsFormTypeError);
-    }
-  }
-
   async processFormSubmission(job: Job<any, any, string>) {
-    // Check if data has already been added to DB. If not, add it
-    let requestData = await this.requestDBService.findOneByFormSubmissionId(
-      job.id,
-    );
-    if (requestData == null) {
-      requestData = await this.requestDBService.createWebhookEntry(
-        job.id,
-        job.data,
-      );
-    }
-    const data = JSON.parse(requestData.webhookBody);
+    const data = job.data;
 
-    // Get CHEFS form data from upstream
-    let response, formName;
+    // Get CHEFS form data from upstream before persisting anything, so that submissions that
+    // are rejected (unsupported form, or not yet approved for ingestion) never get an entry in
+    // the DB
+    let response;
     try {
-      [response, formName] =
+      response =
         await this.requestPreparerService.getFormSubmissionPayload(data);
     } catch (error) {
       if (isAxiosError(error)) {
@@ -608,20 +566,40 @@ export class InboundQueueWorker extends WorkerHost {
         }
         throw error; // return to queue
       } else {
-        // Complete job and delete DB entry if form is not currently accepted
+        // Complete job if form is not currently accepted; nothing was persisted
         this.logger.error(error, undefined, {
-          formSubmissionId: requestData.webhookFormSubmissionId,
-          formId: data['meta']['formId'],
+          formSubmissionId: job.id,
+          formId: data['meta']?.['formId'],
         });
-        await this.requestDBService.remove(requestData.id);
         return;
       }
+    }
+
+    const formId = data['meta']?.['formId'];
+    const submissionData = response.data['submission']['submission']['data'];
+    if (!this.checkApprovedForIngestion(formId, submissionData)) {
+      // Complete job if form submission is not yet approved for ingestion; nothing was persisted
+      this.logger.log(
+        `Form submission with id '${job.id}' is not approved for ingestion, skipping...`,
+      );
+      return;
+    }
+
+    // Check if data has already been added to DB. If not, add it
+    let requestData = await this.requestDBService.findOneByFormSubmissionId(
+      job.id,
+    );
+    if (requestData == null) {
+      requestData = await this.requestDBService.createWebhookEntry(
+        job.id,
+        data,
+      );
     }
 
     // Add to outbound queue
     let updateObject;
     try {
-      updateObject = this.formatInputForUpstream(response.data, formName);
+      updateObject = this.formatDynamicForUpstream(response.data);
     } catch (error) {
       // Complete job and delete DB entry if form is not formatted correctly
       this.logger.error(`Formatting error`);
@@ -646,5 +624,50 @@ export class InboundQueueWorker extends WorkerHost {
       response.data['submission']['confirmationId'],
     );
     this.logger.log(`Grabbed form data for request with id '${result.id}'`);
+  }
+
+  /**
+   * Alerts when an inbound job fails, so a permanently failed job (one that has exhausted its
+   * retries, or stalled - e.g. due to a server crash mid-processing - more times than BullMQ's
+   * maxStalledCount) doesn't fail silently. This is the only signal available for such jobs,
+   * since BullMQ will not retry them further on its own. A job that stalled too many times is
+   * reported to the worker as an UnrecoverableError, which skips retries even if attemptsMade is
+   * below the configured limit, so that case is also treated as permanent here.
+   * @param job the job that failed
+   * @param error the error that caused the latest attempt to fail
+   */
+  @OnWorkerEvent('failed')
+  async onFailed(job: Job<any, any, string>, error: Error) {
+    const attemptsMade = job.attemptsMade;
+    const maxAttempts = job.opts?.attempts ?? 1;
+    const isPermanentFailure =
+      attemptsMade >= maxAttempts || error instanceof UnrecoverableError;
+    const context = {
+      formSubmissionId: job.id,
+      formId: job.data?.['meta']?.['formId'],
+      attemptsMade,
+      maxAttempts,
+    };
+    if (isPermanentFailure) {
+      this.logger.error(
+        `Inbound job with id '${job.id}' permanently failed after ${attemptsMade} attempt(s) and will not be retried automatically. If a DB entry was already created for this submission, it may require manual investigation/cleanup. Failure reason: ${error?.message}`,
+        error?.stack,
+        context,
+      );
+      // Best-effort notification only: sendAdminAlert never throws, so this is attempted once
+      // and is not retried if it fails.
+      await this.mailerService.sendAdminAlert(
+        `Retry Mechanism Alert: Inbound job permanently failed`,
+        `Inbound job with id '${job.id}' (form id '${context.formId}') permanently failed after ${attemptsMade} attempt(s) and will not be retried automatically.\n` +
+          `If a DB entry was already created for this submission, it may require manual investigation/cleanup.\n` +
+          `Failure reason: ${error?.message}`,
+      );
+    } else {
+      this.logger.error(
+        `Inbound job with id '${job.id}' failed on attempt ${attemptsMade} of ${maxAttempts} and will be retried. Failure reason: ${error?.message}`,
+        error?.stack,
+        context,
+      );
+    }
   }
 }

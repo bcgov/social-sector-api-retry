@@ -174,16 +174,16 @@ env:
       secretKeyRef:
           name: social-retry
           key: MAIL_PASSWORD
-  - name: MAIL_SENDER_ADDRESS
+  - name: MAIL_SOURCE_SENDER_ADDRESS
     valueFrom:
       configMapKeyRef:
           name: social-retry-config
-          key: MAIL_SENDER_ADDRESS
-  - name: NATS_FILTER_SUBJECTS
+          key: MAIL_SOURCE_SENDER_ADDRESS
+  - name: MAIL_ADMIN_TARGET_ADDRESS
     valueFrom:
-      secretKeyRef:
-          name: social-retry
-          key: NATS_FILTER_SUBJECTS
+      configMapKeyRef:
+          name: social-retry-config
+          key: MAIL_ADMIN_TARGET_ADDRESS
   - name: NATS_MAX_MESSAGES
     valueFrom:
       configMapKeyRef:
@@ -239,48 +239,8 @@ env:
       configMapKeyRef:
           name: social-retry-config
           key: CHEFS_GET_FORM_SUBMISSION_ENDPOINT
-  - name: CHEFS_MEMO_API_KEY
+  - name: CHEFS_FORM_CONFIGS
     valueFrom:
       secretKeyRef:
           name: social-retry
-          key: CHEFS_MEMO_API_KEY
-  - name: CHEFS_MEMO_FORM_ID
-    valueFrom:
-      secretKeyRef:
-          name: social-retry
-          key: CHEFS_MEMO_FORM_ID
-  - name: SIEBEL_IN_PERSON_VISITS_ENDPOINT
-    valueFrom:
-      configMapKeyRef:
-          name: social-retry-config
-          key: SIEBEL_IN_PERSON_VISITS_ENDPOINT
-  - name: SIEBEL_IN_PERSON_VISITS_WORKSPACE
-    valueFrom:
-      configMapKeyRef:
-          name: social-retry-config
-          key: SIEBEL_IN_PERSON_VISITS_WORKSPACE
-  - name: CHEFS_DYNAMIC_FORM_ENDPOINTS
-    valueFrom:
-      secretKeyRef:
-          name: social-retry
-          key: CHEFS_DYNAMIC_FORM_ENDPOINTS
-  - name: CHEFS_DYNAMIC_FORM_WORKSPACES
-    valueFrom:
-      secretKeyRef:
-          name: social-retry
-          key: CHEFS_DYNAMIC_FORM_WORKSPACES
-  - name: CHEFS_DYNAMIC_FORM_METHODS
-    valueFrom:
-      secretKeyRef:
-          name: social-retry
-          key: CHEFS_DYNAMIC_FORM_METHODS
-  - name: CHEFS_DYNAMIC_API_KEYS
-    valueFrom:
-      secretKeyRef:
-          name: social-retry
-          key: CHEFS_DYNAMIC_API_KEYS
-  - name: CHEFS_DYNAMIC_FORM_IDS
-    valueFrom:
-      secretKeyRef:
-          name: social-retry
-          key: CHEFS_DYNAMIC_FORM_IDS
+          key: CHEFS_FORM_CONFIGS

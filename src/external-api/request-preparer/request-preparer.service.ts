@@ -6,12 +6,11 @@ import { firstValueFrom } from 'rxjs';
 import { TokenRefresherService } from '../token-refresher/token-refresher.service';
 import { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { unsupportedChefsFormTypeError } from '../../common/constants/errors';
-import { FormType } from '../../common/constants/enumerations';
+import { FormConfig } from '../../configuration/form-configs';
 
 @Injectable()
 export class RequestPreparerService {
-  chefsApiKeys: object;
-  chefsFormIds: object;
+  formConfigs: Record<string, FormConfig>;
   chefsGetSubmissionEndpoint: string;
   private readonly logger = new Logger(RequestPreparerService.name);
 
@@ -20,8 +19,8 @@ export class RequestPreparerService {
     private readonly configService: ConfigService,
     private readonly tokenRefresherService: TokenRefresherService,
   ) {
-    this.chefsApiKeys = this.configService.get<object>('chefs.apiKeys');
-    this.chefsFormIds = this.configService.get<object>('chefs.formIds');
+    this.formConfigs =
+      this.configService.get<Record<string, FormConfig>>('chefs.formConfigs');
     this.chefsGetSubmissionEndpoint = encodeURI(
       this.configService.get<string>('chefs.endpointUrls.baseUrl') +
         this.configService.get<string>('chefs.endpointUrls.getFormSubmission'),
@@ -82,31 +81,18 @@ export class RequestPreparerService {
     return response;
   }
 
-  checkValidFormType(formId: string): FormType {
-    let submissionFormName = undefined;
-    for (const formName in this.chefsFormIds) {
-      const id = this.chefsFormIds[`${formName}`];
-      if (id === formId) {
-        submissionFormName = formName;
-      }
-    }
-    if (submissionFormName === undefined) {
-      for (const dynFormId of this.chefsFormIds[FormType.Dynamic]) {
-        if (dynFormId === formId) {
-          return FormType.Dynamic;
-        }
-      }
+  getFormConfig(formId: string): FormConfig {
+    const formConfig = this.formConfigs?.[formId];
+    if (formConfig === undefined) {
       throw new Error(unsupportedChefsFormTypeError);
     }
-    return submissionFormName as FormType;
+    return formConfig;
   }
 
-  async getFormSubmissionPayload(
-    data: object,
-  ): Promise<[AxiosResponse, FormType]> {
+  async getFormSubmissionPayload(data: object): Promise<AxiosResponse> {
     const formId = data['meta']['formId'];
     const formSubmissionId = data['meta']['submissionId'];
-    const formName = this.checkValidFormType(formId);
+    const formConfig = this.getFormConfig(formId);
     const url = this.chefsGetSubmissionEndpoint.replace(
       'formSubmissionId',
       formSubmissionId,
@@ -114,10 +100,7 @@ export class RequestPreparerService {
     const axiosConfig: AxiosRequestConfig = {
       auth: {
         username: formId,
-        password:
-          formName !== FormType.Dynamic
-            ? this.chefsApiKeys[formName]
-            : this.chefsApiKeys[formName][formId],
+        password: formConfig.apiKey,
       },
     };
 
@@ -127,6 +110,6 @@ export class RequestPreparerService {
     } catch (error) {
       throw error; // throw to catching function
     }
-    return [response, formName];
+    return response;
   }
 }
