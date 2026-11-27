@@ -174,16 +174,16 @@ env:
       secretKeyRef:
           name: social-retry
           key: MAIL_PASSWORD
-  - name: MAIL_SENDER_ADDRESS
+  - name: MAIL_SOURCE_SENDER_ADDRESS
     valueFrom:
       configMapKeyRef:
           name: social-retry-config
-          key: MAIL_SENDER_ADDRESS
-  - name: MAIL_ADMIN_ADDRESS
+          key: MAIL_SOURCE_SENDER_ADDRESS
+  - name: MAIL_ADMIN_TARGET_ADDRESS
     valueFrom:
       configMapKeyRef:
           name: social-retry-config
-          key: MAIL_ADMIN_ADDRESS
+          key: MAIL_ADMIN_TARGET_ADDRESS
   - name: NATS_MAX_MESSAGES
     valueFrom:
       configMapKeyRef:

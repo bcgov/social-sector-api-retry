@@ -54,8 +54,8 @@ export default () => {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASSWORD,
       pool: process.env.MAIL_POOL_CONNECTION === 'true',
-      sender: process.env.MAIL_SENDER_ADDRESS,
-      adminAddress: process.env.MAIL_ADMIN_ADDRESS,
+      sender: process.env.MAIL_SOURCE_SENDER_ADDRESS,
+      adminAddress: process.env.MAIL_ADMIN_TARGET_ADDRESS,
     },
     nats: {
       filterSubjects: getFilterSubjects(formConfigs),
